@@ -78,6 +78,12 @@ Compose 运行库由宿主提供，插件编译时的 Compose BOM 版本必须�
 - `player/`：ExoPlayer 队列 + 播放地址按需解析、MediaSessionService
 - `data/`：账号、红心、设置
 - `ui/`：主题、导航、各页面
+
+## 沉浸歌词
+
+酷狗模块的三页沉浸歌词、Folia 风格歌词模式、动态背景、字体和自定义图片背景说明见：
+
+- [`docs/immersive-lyrics.md`](docs/immersive-lyrics.md)
 # 跑跑桌面音乐功能包
 
 云音乐既可以构建为独立调试 APK，也可以构建为跑跑桌面直接加载的签名功能包。功能包不是
