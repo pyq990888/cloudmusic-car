@@ -210,10 +210,21 @@ shared/nowplaying/src/main/resources/immersive/fonts/
 字体第一次被选择时，复制到应用私有目录：
 
 ```text
-<应用私有目录>/files/kugou_immersive/fonts-v1/
+<应用私有目录>/files/kugou_immersive/fonts-v2/
 ```
 
 四季春加糖字体来自上游项目，目录中保留对应许可证。修改字体资源时需要同步更新 `README.md` 和许可证文件。
+
+打包的 `SweiSpringSugarSC.ttf` 是完整上游字体的 GB2312 子集，包含 ASCII 和 GB2312
+规定的符号、假名、希腊字母、西里尔字母、标点及简体汉字。超出子集范围的字符由
+`ImmersiveFonts.kt` 中配置的系统备用字体回退显示。需要重新生成子集时可运行：
+
+```powershell
+python tools/subset-kugou-font.py <完整字体文件> shared/nowplaying/src/main/resources/immersive/fonts/SweiSpringSugarSC.ttf
+```
+
+字体缓存目录升级到 `fonts-v2`。新字体首次落盘后会删除旧 `fonts-v1` 下的同名字体，
+避免升级设备继续保留完整字体缓存。
 
 ## 插件宿主限制
 

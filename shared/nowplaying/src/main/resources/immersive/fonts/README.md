@@ -8,6 +8,17 @@ and does not bundle a font file.
 | --- | --- |
 | SweiSpringSugarSC.ttf | https://github.com/max32002/swei-spring/tree/main/WebFont/CJK%20SC |
 
-Swei Spring Sugar Medium is decompressed from the upstream WOFF2 into an SFNT
-container without editing its glyph outlines or family names.
+`SweiSpringSugarSC.ttf` is a GB2312 subset generated from the full upstream
+font. It contains ASCII and the assigned GB2312 symbols, kana, Greek letters,
+Cyrillic letters, punctuation, and simplified Chinese characters. Glyphs
+outside that set use Android's configured fallback font.
+
+Regenerate the bundled font from the full upstream TTF or WOFF2 after
+installing `fonttools`:
+
+```bash
+python tools/subset-kugou-font.py path/to/SweiSpringSugarSC.woff2 \
+  shared/nowplaying/src/main/resources/immersive/fonts/SweiSpringSugarSC.ttf
+```
+
 Folia's web source, runtime, and graphical assets are not included.

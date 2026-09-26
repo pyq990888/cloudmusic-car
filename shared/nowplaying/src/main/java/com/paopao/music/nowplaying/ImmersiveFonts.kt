@@ -16,6 +16,9 @@ import java.io.File
 
 private object FontResourceAnchor
 
+private const val FontCacheFolder = "kugou_immersive/fonts-v2"
+private const val LegacyFontCacheFolder = "kugou_immersive/fonts-v1"
+
 @Composable
 internal fun rememberLyricTypeface(font: LyricFont, onError: (String) -> Unit): Typeface {
     val context = LocalContext.current.applicationContext
@@ -35,7 +38,7 @@ internal fun rememberLyricTypeface(font: LyricFont, onError: (String) -> Unit): 
 @Synchronized
 private fun loadLyricTypeface(context: Context, font: LyricFont): Typeface {
     val name = font.fileName ?: return Typeface.create(font.fallback, Typeface.NORMAL)
-    val folder = File(context.filesDir, "kugou_immersive/fonts-v1").apply { mkdirs() }
+    val folder = File(context.filesDir, FontCacheFolder).apply { mkdirs() }
     val file = File(folder, name)
     if (!file.exists()) {
         val input = FontResourceAnchor::class.java.classLoader?.getResourceAsStream("immersive/fonts/$name")
@@ -47,6 +50,7 @@ private fun loadLyricTypeface(context: Context, font: LyricFont): Typeface {
         } finally {
             temporary.delete()
         }
+        File(context.filesDir, "$LegacyFontCacheFolder/$name").delete()
     }
     return Typeface.Builder(file).apply {
         setWeight(font.weight)
