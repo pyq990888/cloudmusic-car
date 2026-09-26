@@ -74,7 +74,7 @@ internal fun NowPlayingPager(
                 val active = pager.currentPage == page
                 when (page) {
                     PlayerPages.IMMERSIVE -> ImmersiveLyricsScreen(
-                        source, onClose = returnToCover, active = active,
+                        source, onClose = onClose, accentColor = accent, active = active,
                         onOverlayChanged = { if (active) overlayOpen = it },
                         onControlsChanged = { if (active) immersiveControls = it },
                         onForegroundChanged = { immersiveForeground = it },

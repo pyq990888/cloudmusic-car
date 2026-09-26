@@ -3,15 +3,19 @@ package com.paopao.music.nowplaying
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.FileUpload
@@ -23,7 +27,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,16 +43,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+
+private val SettingsMenuShape = RoundedCornerShape(18.dp)
+private val SettingsMenuContainer = Color.Black
+private val SettingsMenuBorder = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+private val SettingsMenuText = Color.White
+private val SettingsMenuSecondary = Color.White.copy(alpha = 0.62f)
+private val SettingsMenuDanger = Color(0xFFFFB4AB)
+private val SettingsMenuItemPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
 
 @Composable
 internal fun ImmersiveSettingsActions(
     store: ImmersivePreferenceStore,
     settings: ImmersivePreferences,
     tint: Color,
+    textSize: TextUnit,
+    accentColor: Color,
     onOverlayChanged: (Boolean) -> Unit,
     onInteraction: () -> Unit,
     onError: (String) -> Unit,
@@ -75,15 +91,37 @@ internal fun ImmersiveSettingsActions(
         }
     } else null
     val dismiss = { menu = null; onInteraction() }
+    val itemColors = MenuDefaults.itemColors(
+        textColor = SettingsMenuText,
+        leadingIconColor = SettingsMenuSecondary,
+        trailingIconColor = accentColor,
+        disabledTextColor = SettingsMenuText.copy(alpha = 0.38f),
+        disabledLeadingIconColor = SettingsMenuText.copy(alpha = 0.3f),
+        disabledTrailingIconColor = accentColor.copy(alpha = 0.38f),
+    )
+    val radioColors = RadioButtonDefaults.colors(
+        selectedColor = accentColor,
+        unselectedColor = SettingsMenuSecondary,
+        disabledSelectedColor = accentColor.copy(alpha = 0.38f),
+        disabledUnselectedColor = SettingsMenuSecondary.copy(alpha = 0.38f),
+    )
+    val menuWidth = if (textSize.value > 14f) 304.dp else 264.dp
     Row {
         Box {
             ImmersiveAction(Icons.Rounded.Animation, "歌词模式", onClick = { menu = "mode" }, tint = tint)
-            DropdownMenu(expanded = menu == "mode", onDismissRequest = dismiss, containerColor = Color(0xFF171C1B)) {
+            SettingsDropdownMenu(
+                expanded = menu == "mode",
+                onDismissRequest = dismiss,
+                modifier = Modifier.width(menuWidth),
+            ) {
                 FoliaLyricMode.entries.forEach { value ->
+                    val selected = settings.mode == value
                     DropdownMenuItem(
-                        text = { Text(value.label, color = Color.White) },
-                        leadingIcon = { RadioButton(selected = settings.mode == value, onClick = null) },
+                        text = { SettingsMenuLabel(value.label, textSize, if (selected) accentColor else SettingsMenuText) },
+                        leadingIcon = { RadioButton(selected = selected, onClick = null, colors = radioColors) },
                         onClick = { store.mode(value); dismiss() },
+                        colors = itemColors,
+                        contentPadding = SettingsMenuItemPadding,
                     )
                 }
             }
@@ -91,22 +129,25 @@ internal fun ImmersiveSettingsActions(
         Box {
             ImmersiveAction(Icons.Rounded.Palette, "背景风格", onClick = { menu = "background" }, tint = tint, enabled = !importing)
             if (importing) CircularProgressIndicator(Modifier.size(48.dp).padding(12.dp), color = tint, strokeWidth = 2.dp)
-            DropdownMenu(
+            SettingsDropdownMenu(
                 expanded = menu == "background", onDismissRequest = dismiss,
-                containerColor = Color(0xFF171C1B), modifier = Modifier.heightIn(max = 520.dp).width(256.dp),
+                modifier = Modifier.heightIn(max = 520.dp).width(menuWidth),
             ) {
                 ImmersiveBackdrop.entries.filter { it != ImmersiveBackdrop.CUSTOM || settings.imageName != null }.forEach { value ->
+                    val selected = settings.backdrop == value
                     DropdownMenuItem(
-                        text = { Text(value.label, color = Color.White) },
+                        text = { SettingsMenuLabel(value.label, textSize, if (selected) accentColor else SettingsMenuText) },
                         leadingIcon = { Box(Modifier.size(15.dp).clip(CircleShape).background(value.swatch)) },
-                        trailingIcon = { RadioButton(selected = settings.backdrop == value, onClick = null) },
+                        trailingIcon = { RadioButton(selected = selected, onClick = null, colors = radioColors) },
                         onClick = { store.backdrop(value); dismiss() },
+                        colors = itemColors,
+                        contentPadding = SettingsMenuItemPadding,
                     )
                 }
-                HorizontalDivider()
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 12.dp))
                 DropdownMenuItem(
-                    text = { Text("导入图片 / GIF / WebP", color = Color.White, fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Rounded.FileUpload, null, tint = Color.White) },
+                    text = { SettingsMenuLabel("导入图片 / GIF / WebP", textSize) },
+                    leadingIcon = { Icon(Icons.Rounded.FileUpload, null, tint = SettingsMenuText) },
                     onClick = {
                         dismiss()
                         if (picker == null) onError("当前宿主未提供文件选择器，请在独立 APK 中导入")
@@ -116,15 +157,22 @@ internal fun ImmersiveSettingsActions(
                             onError("无法打开系统文件选择器")
                         }
                     },
+                    colors = itemColors,
+                    contentPadding = SettingsMenuItemPadding,
                 )
                 if (settings.imageName != null) {
                     Column(Modifier.padding(horizontal = 16.dp)) {
-                        Text("背景遮罩", color = Color.White, fontSize = 13.sp)
+                        Text(
+                            "背景遮罩",
+                            color = SettingsMenuText,
+                            fontSize = textSize,
+                            lineHeight = textSize * 1.35f,
+                        )
                         var dim by remember(settings.imageDim) { mutableStateOf(settings.imageDim) }
                         Slider(value = dim, onValueChange = { dim = it }, onValueChangeFinished = { store.dim(dim) }, valueRange = 0f..0.8f)
                     }
                     DropdownMenuItem(
-                        text = { Text("移除导入的图片", color = Color(0xFFFFB6AF)) },
+                        text = { SettingsMenuLabel("移除导入的图片", textSize, SettingsMenuDanger) },
                         onClick = {
                             dismiss()
                             scope.launch {
@@ -133,18 +181,27 @@ internal fun ImmersiveSettingsActions(
                                 catch (_: Exception) { onError("移除背景失败") }
                             }
                         },
+                        colors = itemColors,
+                        contentPadding = SettingsMenuItemPadding,
                     )
                 }
             }
         }
         Box {
             ImmersiveAction(Icons.Rounded.FontDownload, "歌词字体", onClick = { menu = "font" }, tint = tint)
-            DropdownMenu(expanded = menu == "font", onDismissRequest = dismiss, containerColor = Color(0xFF171C1B)) {
+            SettingsDropdownMenu(
+                expanded = menu == "font",
+                onDismissRequest = dismiss,
+                modifier = Modifier.width(menuWidth),
+            ) {
                 LyricFont.entries.forEach { value ->
+                    val selected = settings.font == value
                     DropdownMenuItem(
-                        text = { Text(value.label, color = Color.White) },
-                        leadingIcon = { RadioButton(selected = settings.font == value, onClick = null) },
+                        text = { SettingsMenuLabel(value.label, textSize, if (selected) accentColor else SettingsMenuText) },
+                        leadingIcon = { RadioButton(selected = selected, onClick = null, colors = radioColors) },
                         onClick = { store.font(value); dismiss() },
+                        colors = itemColors,
+                        contentPadding = SettingsMenuItemPadding,
                     )
                 }
             }
@@ -155,4 +212,38 @@ internal fun ImmersiveSettingsActions(
             tint = tint, accent = settings.backdrop.accent,
         )
     }
+}
+
+@Composable
+private fun SettingsDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        shape = SettingsMenuShape,
+        containerColor = SettingsMenuContainer,
+        tonalElevation = 0.dp,
+        shadowElevation = 18.dp,
+        border = SettingsMenuBorder,
+        content = content,
+    )
+}
+
+@Composable
+private fun SettingsMenuLabel(
+    text: String,
+    size: TextUnit,
+    color: Color = Color.Unspecified,
+) {
+    Text(
+        text,
+        color = color,
+        fontSize = size,
+        lineHeight = size * 1.35f,
+    )
 }

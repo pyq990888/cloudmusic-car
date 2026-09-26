@@ -84,6 +84,7 @@ private val InkAccent = Color(0xFFB9DCCF)
 fun ImmersiveLyricsScreen(
     source: NowPlayingSource,
     onClose: () -> Unit,
+    accentColor: Color,
     active: Boolean = true,
     onOverlayChanged: (Boolean) -> Unit = {},
     onControlsChanged: (Boolean) -> Unit = {},
@@ -178,6 +179,15 @@ fun ImmersiveLyricsScreen(
             val metadataWidth = maxOf(80.dp, maxWidth / 2 - 152.dp)
             val topSpace = if (compact) 68.dp else 108.dp
             val bottomSpace = if (compact) 116.dp else 164.dp
+            val controlsStart = maxOf(
+                maxHeight * 0.114f + 8.dp,
+                if (compact) 64.dp else 104.dp,
+            )
+            val settingsTextSize = if (portrait) {
+                14.sp
+            } else {
+                (maxHeight.value / 40f).coerceIn(16f, 20f).sp
+            }
             Column(
                 Modifier
                     .fillMaxSize()
@@ -226,7 +236,14 @@ fun ImmersiveLyricsScreen(
                 modifier = Modifier.align(Alignment.TopCenter),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = if (compact) 16.dp else 28.dp, vertical = 16.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = controlsStart,
+                            end = if (compact) 16.dp else 28.dp,
+                            top = 16.dp,
+                            bottom = 16.dp,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -244,10 +261,23 @@ fun ImmersiveLyricsScreen(
                     }
                     ImmersiveSettingsActions(
                         store, settings, tint = textColor,
+                        textSize = settingsTextSize,
+                        accentColor = accentColor,
                         onOverlayChanged = { settingsOpen = it },
                         onInteraction = revealControls, onError = reportError,
                     )
                 }
+            }
+            AnimatedVisibility(
+                visible = controlsVisible,
+                enter = fadeIn(tween(220)), exit = fadeOut(tween(600)),
+                modifier = Modifier.align(Alignment.TopStart),
+            ) {
+                CloseButton(
+                    Grid(maxHeight / 100f),
+                    onClose,
+                    contentDescription = "收起播放器",
+                )
             }
             AnimatedVisibility(
                 visible = controlsVisible,

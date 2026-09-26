@@ -224,7 +224,12 @@ internal fun IconButton(
 }
 
 @Composable
-internal fun CloseButton(g: Grid, onClose: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CloseButton(
+    g: Grid,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "收起播放页",
+) {
     Box(
         modifier
             .padding(g(3f))
@@ -234,7 +239,7 @@ internal fun CloseButton(g: Grid, onClose: () -> Unit, modifier: Modifier = Modi
             .pressable(onClick = onClose),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Rounded.KeyboardArrowDown, "收起播放页", tint = Color.White, modifier = Modifier.size(g(3.6f)))
+        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription, tint = Color.White, modifier = Modifier.size(g(3.6f)))
     }
 }
 
