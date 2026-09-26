@@ -1,7 +1,19 @@
 package com.kugoumusic.car.ui.screens
 
+import android.app.Activity
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import coil.ImageLoader
 import com.kugoumusic.car.api.Track
 import com.kugoumusic.car.api.sized
@@ -19,8 +31,34 @@ import com.paopao.music.nowplaying.NowPlayingScreen as SharedNowPlayingScreen
 
 /** 播放页本体在共用源码 shared/nowplaying；这里只把本功能包的播放器接进去。 */
 @Composable
-fun NowPlayingScreen(onClose: () -> Unit) {
-    SharedNowPlayingScreen(PlayerSource, K.colors.accent, onClose)
+fun NowPlayingScreen(onClose: () -> Unit, standalone: Boolean = false) {
+    var immersive by rememberSaveable { mutableStateOf(false) }
+    if (immersive) {
+        if (standalone) {
+            val view = LocalView.current
+            val window = (LocalContext.current as? Activity)?.window
+            DisposableEffect(view, window) {
+                val insets = ViewCompat.getRootWindowInsets(view)
+                val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+                val behavior = controller?.systemBarsBehavior
+                controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
+                onDispose {
+                    if (insets?.isVisible(WindowInsetsCompat.Type.statusBars()) == true) {
+                        controller?.show(WindowInsetsCompat.Type.statusBars())
+                    }
+                    if (insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) == true) {
+                        controller?.show(WindowInsetsCompat.Type.navigationBars())
+                    }
+                    if (behavior != null) controller?.systemBarsBehavior = behavior
+                }
+            }
+        }
+    }
+    SharedNowPlayingScreen(
+        PlayerSource, K.colors.accent, onClose,
+        immersiveEnabled = true, onImmersiveChanged = { immersive = it },
+    )
 }
 
 private object PlayerSource : NowPlayingSource {

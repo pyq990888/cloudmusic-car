@@ -43,7 +43,8 @@ cp "$PROJECT_DIR/kugoumusic/src/main/res/drawable-nodpi/ic_kugoumusic_app.png" "
 cp "$PROJECT_DIR/kugoumusic/plugin.json" "$TEMP_DIR/plugin.json"
 
 mkdir -p "$OUT_DIR"
-(cd "$TEMP_DIR" && jar --create --file "$OUT" plugin.json classes.dex icon.png)
+(cd "$TEMP_DIR" && jar --create --file "$OUT" plugin.json classes.dex icon.png \
+  -C "$PROJECT_DIR/shared/nowplaying/src/main/resources" immersive)
 
 STORE_FILE=$(property storeFile)
 STORE_PASSWORD=$(property storePassword)

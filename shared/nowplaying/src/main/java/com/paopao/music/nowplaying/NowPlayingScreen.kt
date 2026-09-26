@@ -1,6 +1,7 @@
 package com.paopao.music.nowplaying
 
 import android.graphics.drawable.BitmapDrawable
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
@@ -77,10 +78,39 @@ private const val UltraWideRatio = 1.55f
  * - 竖屏左滑进歌词页、右滑回封面；横屏和超宽屏封面与歌词同屏。
  */
 @Composable
-fun NowPlayingScreen(source: NowPlayingSource, accent: Color, onClose: () -> Unit) {
+fun NowPlayingScreen(
+    source: NowPlayingSource,
+    accent: Color,
+    onClose: () -> Unit,
+    immersiveEnabled: Boolean = false,
+    initialPage: Int = PlayerPages.COVER,
+    onImmersiveChanged: (Boolean) -> Unit = {},
+) {
+    if (immersiveEnabled) {
+        NowPlayingPager(source, accent, onClose, initialPage, onImmersiveChanged)
+    } else {
+        StandardNowPlayingScreen(source, accent, onClose)
+    }
+}
+
+@Composable
+internal fun StandardNowPlayingScreen(
+    source: NowPlayingSource,
+    accent: Color,
+    onClose: () -> Unit,
+    active: Boolean = true,
+    singlePage: Boolean = false,
+    lyricsOnly: Boolean = false,
+    onShowLyrics: () -> Unit = {},
+    onOverlayChanged: (Boolean) -> Unit = {},
+) {
     val track by source.current.collectAsState()
     var showQueue by remember { mutableStateOf(false) }
-    val clock = rememberPlaybackClock(source)
+    BackHandler(enabled = active && showQueue) { showQueue = false }
+    LaunchedEffect(showQueue, active) {
+        if (active) onOverlayChanged(showQueue)
+    }
+    val clock = rememberPlaybackClock(source, active = active)
     val (top, bottom) = rememberCoverColors(source, track?.coverUrl)
 
     Box(
@@ -99,7 +129,11 @@ fun NowPlayingScreen(source: NowPlayingSource, accent: Color, onClose: () -> Uni
             } else {
                 val switcher = rememberTrackSwitcher(source, t)
                 when {
-                    ratio < 1f -> PortraitLayout(source, accent, clock, switcher, g, maxWidth) { showQueue = true }
+                    lyricsOnly -> FullLyricsLayout(source, accent, clock, switcher, g, active) { showQueue = true }
+                    ratio < 1f -> PortraitLayout(
+                        source, accent, clock, switcher, g, maxWidth,
+                        singlePage = singlePage, onShowLyrics = onShowLyrics,
+                    ) { showQueue = true }
                     ratio < UltraWideRatio -> LandscapeLayout(source, accent, clock, switcher, g, maxWidth) { showQueue = true }
                     else -> UltraWideLayout(source, accent, clock, switcher, g, maxWidth) { showQueue = true }
                 }
@@ -298,6 +332,8 @@ private fun PortraitLayout(
     switcher: TrackSwitcher,
     g: Grid,
     width: Dp,
+    singlePage: Boolean = false,
+    onShowLyrics: () -> Unit = {},
     onQueue: () -> Unit,
 ) {
     val track = source.current.collectAsState().value ?: return
@@ -323,7 +359,7 @@ private fun PortraitLayout(
             .onSizeChanged { widthPx = it.width.coerceAtLeast(1).toFloat() }
             .axisDrag(
                 key = switcher,
-                allowX = true,
+                allowX = !singlePage,
                 allowY = true,
                 onStart = {},
                 onDrag = { axis, d ->
@@ -354,7 +390,7 @@ private fun PortraitLayout(
                     .graphicsLayer { translationX = -page.floatValue * size.width }
                     // 除了左滑，点封面页也进歌词页
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                        if (target == 0f) settlePage(1f)
+                        if (singlePage) onShowLyrics() else if (target == 0f) settlePage(1f)
                     },
             ) {
                 CardStage(switcher, track, Modifier.fillMaxSize()) { t, isCurrent ->
@@ -389,7 +425,9 @@ private fun PortraitLayout(
         }
 
         // 两页之间的圆点，可点
-        PageDots(g, page, Modifier.align(Alignment.TopCenter).padding(top = g(4.4f))) { settlePage(it) }
+        if (!singlePage) {
+            PageDots(g, page, Modifier.align(Alignment.TopCenter).padding(top = g(4.4f))) { settlePage(it) }
+        }
 
         // 底部控制区：两页共用
         Column(
@@ -409,6 +447,44 @@ private fun PortraitLayout(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 secondaryButtons(source, accent, g, onQueue).forEach { it() }
             }
+        }
+    }
+}
+
+@Composable
+private fun FullLyricsLayout(
+    source: NowPlayingSource,
+    accent: Color,
+    clock: PlaybackClock,
+    switcher: TrackSwitcher,
+    g: Grid,
+    active: Boolean,
+    onQueue: () -> Unit,
+) {
+    val track by source.current.collectAsState()
+    val fm by source.isFm.collectAsState()
+    Column(Modifier.fillMaxSize().padding(horizontal = g(6f))) {
+        Spacer(Modifier.height(g(11f)))
+        track?.let {
+            Text(
+                it.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = g.sp(2.8f),
+                textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        LyricsList(
+            source, clock, g, Modifier.weight(1f).fillMaxWidth(),
+            textSize = 4.4f, centered = true, inactiveScale = 0.7f,
+            lineGap = 2.1f, visible = active,
+        )
+        ProgressBar(source, clock, g, inline = true, modifier = Modifier.fillMaxWidth())
+        Row(Modifier.fillMaxWidth().padding(bottom = g(3f)), verticalAlignment = Alignment.CenterVertically) {
+            val buttons = secondaryButtons(source, accent, g, onQueue)
+            buttons.first()()
+            Spacer(Modifier.weight(1f))
+            MainControls(source, g, switcher.canPrevious || !fm, switcher::skipPrevious, switcher::skipNext)
+            Spacer(Modifier.weight(1f))
+            buttons.last()()
         }
     }
 }

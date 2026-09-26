@@ -103,7 +103,7 @@ fun AppRoot(embedded: Boolean = false) {
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
-                NowPlayingScreen(onClose = { nav.nowPlayingOpen = false })
+                NowPlayingScreen(onClose = { nav.nowPlayingOpen = false }, standalone = !embedded)
             }
         }
         StatusHost()

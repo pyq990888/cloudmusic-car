@@ -29,9 +29,10 @@ class PlaybackClock internal constructor() {
 }
 
 @Composable
-fun rememberPlaybackClock(source: NowPlayingSource): PlaybackClock {
+fun rememberPlaybackClock(source: NowPlayingSource, active: Boolean = true): PlaybackClock {
     val clock = remember(source) { PlaybackClock() }
-    LaunchedEffect(clock) {
+    LaunchedEffect(clock, active) {
+        if (!active) return@LaunchedEffect
         var anchorPos = 0L
         var anchorAt = 0L
         var polledAt = 0L
