@@ -56,8 +56,8 @@ class ImmersiveEffectsTest {
 
     @Test
     fun backgroundsAreDistinctAndSilverIsRemoved() {
-        assertEquals(10, ImmersiveBackdrop.entries.size)
-        assertEquals(10, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
+        assertEquals(11, ImmersiveBackdrop.entries.size)
+        assertEquals(11, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
         assertFalse(ImmersiveBackdrop.entries.any { it.name.contains("SILVER") })
     }
 }

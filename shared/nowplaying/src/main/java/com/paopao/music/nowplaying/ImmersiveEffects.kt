@@ -19,6 +19,7 @@ internal enum class ImmersiveBackdrop(
     NOMAND("漫游", Color(0xFFF7F4EE), Color(0xFFC3C0B8), Color(0xFFAAD9CE), Color(0xFF81978B)),
     LATENT("隐现", Color(0xFFF8F3F1), Color(0xFFC7BCB9), Color(0xFFF7BAA2), Color(0xFFB98687)),
     SORA("空", Color(0xFFF3F6FF), Color(0xFFB4BED3), Color(0xFFDFBBD2), Color(0xFF7086A8)),
+    FLUID("流体封面", Color(0xFFFBF7F4), Color(0xFFC9C2C0), Color(0xFFFFD6B8), Color(0xFFB07A8C)),
     CUSTOM("自定义图片", Color.White, Color(0xFFD0D0D0), Color(0xFFCDE6DC), Color(0xFF9CACA6)),
 }
 

@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.exp
 import kotlin.random.Random
 
 /**
@@ -30,10 +32,19 @@ internal fun InkFlowBackground(
     foreground: Boolean,
     backdrop: ImmersiveBackdrop,
     artwork: Bitmap? = null,
+    beat: Int = 0,
+    energy: Float = 0.5f,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val view = remember(context) { InkSurface(context) }
+    SideEffect { view.ink.targetEnergy = energy }
+    val firstBeat = remember(view) { intArrayOf(beat) }
+    LaunchedEffect(view, beat) {
+        // A new lyric line sends one swell through the backdrop; the first composition is silent.
+        if (beat != firstBeat[0] && running && foreground) view.ink.kick()
+        firstBeat[0] = Int.MIN_VALUE
+    }
     DisposableEffect(view, foreground) {
         if (foreground) view.onResume() else view.onPause()
         onDispose { view.onPause() }
@@ -88,6 +99,13 @@ private class InkRenderer : GLSurfaceView.Renderer {
     @Volatile private var elapsed = 12f
     @Volatile var backdrop = 0
     @Volatile var artwork: Bitmap? = null
+    /** 1 while a lyric is being sung, lower in gaps and when paused; eased so changes never pop. */
+    @Volatile var targetEnergy = 0.5f
+    @Volatile private var energy = 0.5f
+    @Volatile private var pulse = 0f
+    private var kickAge = Float.MAX_VALUE
+    private var energyLocation = -1
+    private var pulseLocation = -1
     private var program = 0
     private var timeLocation = -1
     private var sizeLocation = -1
@@ -102,7 +120,19 @@ private class InkRenderer : GLSurfaceView.Renderer {
     private val vertices = ByteBuffer.allocateDirect(8 * 4).order(ByteOrder.nativeOrder())
         .asFloatBuffer().apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
 
-    fun advance(seconds: Float) { elapsed += seconds }
+    fun kick() { kickAge = 0f }
+
+    /** Flow speeds up with energy and surges briefly on each pulse, so the backdrop breathes with the song. */
+    fun advance(seconds: Float) {
+        energy += (targetEnergy - energy) * (seconds * 1.6f).coerceAtMost(1f)
+        // Ease into the swell instead of jumping to it; a one-frame jump reads as a flash.
+        kickAge += seconds
+        pulse = if (kickAge < PulseAttack) {
+            val x = kickAge / PulseAttack
+            x * x * (3f - 2f * x)
+        } else exp(-(kickAge - PulseAttack) * 1.9f)
+        elapsed += seconds * (0.55f + 0.75f * energy + 1.6f * pulse)
+    }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0.025f, 0.032f, 0.033f, 1f)
@@ -133,6 +163,8 @@ private class InkRenderer : GLSurfaceView.Renderer {
             timeLocation = GLES20.glGetUniformLocation(program, "uTime")
             sizeLocation = GLES20.glGetUniformLocation(program, "uSize")
             themeLocation = GLES20.glGetUniformLocation(program, "uBackdrop")
+            energyLocation = GLES20.glGetUniformLocation(program, "uEnergy")
+            pulseLocation = GLES20.glGetUniformLocation(program, "uPulse")
             val textures = IntArray(1)
             GLES20.glGenTextures(1, textures, 0)
             noiseTexture = textures[0]
@@ -193,6 +225,8 @@ private class InkRenderer : GLSurfaceView.Renderer {
         GLES20.glUniform1f(timeLocation, elapsed)
         GLES20.glUniform2f(sizeLocation, width.toFloat(), height.toFloat())
         GLES20.glUniform1f(themeLocation, backdrop.toFloat())
+        GLES20.glUniform1f(energyLocation, energy)
+        GLES20.glUniform1f(pulseLocation, pulse)
         GLES20.glEnableVertexAttribArray(0)
         GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 0, vertices)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
@@ -214,6 +248,8 @@ private class InkRenderer : GLSurfaceView.Renderer {
     }
 }
 
+private const val PulseAttack = 0.35f
+
 private const val VERTEX_SHADER = """
 attribute vec2 aPosition;
 void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }
@@ -233,6 +269,8 @@ uniform sampler2D uNoise;
 uniform sampler2D uImage;
 uniform vec2 uImageSize;
 uniform float uHasImage;
+uniform float uEnergy;
+uniform float uPulse;
 
 float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -267,7 +305,7 @@ vec3 ink(vec2 uv) {
     float vein = pow(1.0 - abs(fold), 7.0);
     float body = smoothstep(0.22, 0.80, n);
     float haze = smoothstep(0.18, 0.75, r.x) * 0.22;
-    float light = body * 0.50 + vein * 0.22 + haze;
+    float light = body * 0.50 + vein * (0.22 + uPulse * 0.30) + haze;
     vec3 color = vec3(0.017, 0.027, 0.028) + vec3(0.51, 0.64, 0.61) * light;
     float edge = smoothstep(0.05, 0.70, length((uv - 0.5) * vec2(0.9, 1.1)));
     color *= mix(0.54, 0.88, edge);
@@ -282,6 +320,8 @@ vec3 ripple(vec2 uv) {
     float water = fbm(uv * 3.0 + vec2(uTime * 0.015, -uTime * 0.01));
     vec3 color = vec3(0.72, 0.82, 0.75) + water * vec3(0.12, 0.10, 0.08);
     color += rings * 0.055 + highlight * 0.105;
+    float wave = (1.0 - uPulse) * 1.6;
+    color += exp(-abs(r - wave) * 22.0) * uPulse * 0.16;
     color -= smoothstep(0.1, 0.85, length(uv - 0.5)) * 0.11;
     return color;
 }
@@ -291,7 +331,7 @@ vec3 aurora(vec2 uv) {
     float wave = sin(uv.x * 5.5 + t) * 0.12 + sin(uv.x * 11.0 - t * 0.6) * 0.04;
     float curtain = exp(-abs(uv.y - 0.72 - wave) * 8.0);
     float ribs = 0.6 + 0.4 * sin(uv.x * 85.0 + noise(vec2(uv.x * 7.0, t)) * 8.0);
-    color += vec3(0.14, 0.62, 0.40) * curtain * ribs * 0.62;
+    color += vec3(0.14, 0.62, 0.40) * curtain * ribs * (0.44 + 0.26 * uEnergy + 0.38 * uPulse);
     float coral = exp(-abs(uv.y - 0.18 + sin(uv.x * 4.0 + t * 0.5) * 0.07) * 13.0);
     color += vec3(0.52, 0.20, 0.13) * coral * (0.45 + uv.x * 0.3);
     return color;
@@ -306,7 +346,7 @@ vec3 trails(vec2 uv) {
         float glow = exp(-abs(uv.y - curve) * 68.0) * 0.065;
         float sweep = pow(0.5 + 0.5 * cos(uv.x * 5.0 - t * 2.0 + k), 3.0);
         vec3 tint = mix(vec3(0.94, 0.51, 0.23), vec3(0.30, 0.67, 0.65), mod(k, 2.0));
-        color += tint * (line * (0.15 + sweep * 0.7) + glow);
+        color += tint * (line * (0.15 + sweep * (0.45 + 0.35 * uEnergy + 0.6 * uPulse)) + glow * (0.8 + uPulse));
     }
     return color;
 }
@@ -369,9 +409,28 @@ vec3 sora(vec2 uv) {
     float seed = hash(cell);
     vec2 star = fract(p) - vec2(0.15 + seed * 0.7, 0.15 + hash(cell + 4.0) * 0.7);
     float light = exp(-dot(star, star) * 950.0) * step(0.40, seed);
-    float blink = 0.65 + 0.35 * sin(uTime * (0.6 + seed) + seed * 18.0);
+    float blink = 0.65 + 0.35 * sin(uTime * (0.6 + seed) + seed * 18.0) + uPulse * 0.7 * step(0.7, hash(cell + 9.0));
     color += mix(vec3(0.58, 0.76, 1.0), vec3(1.0, 0.64, 0.46), step(0.88, seed)) * light * blink;
     return color;
+}
+// Artwork arrives as a tiny thumbnail; bilinear sampling across the screen turns it into soft colour fields.
+vec3 fluid(vec2 uv) {
+    float t = uTime * 0.045;
+    vec2 p = (uv - 0.5) * vec2(uSize.x / uSize.y, 1.0);
+    float a = t * 0.7;
+    p = mat2(cos(a), -sin(a), sin(a), cos(a)) * p;
+    vec2 q = vec2(fbm(p * 1.4 + vec2(t, -t * 0.6)), fbm(p * 1.4 + vec2(5.2 - t * 0.8, 1.3 + t)));
+    vec2 w = p * 0.62 + (q - 0.5) * (1.05 + uPulse * 0.35) + 0.5;
+    vec2 w2 = mat2(0.0, -1.0, 1.0, 0.0) * (w - 0.5) * 0.85 + 0.5 + (q.yx - 0.5) * 0.4;
+    vec3 c;
+    if (uHasImage < 0.5) c = mix(vec3(0.10, 0.32, 0.30), vec3(0.62, 0.30, 0.34), fbm(w * 2.5));
+    else c = mix(texture2D(uImage, clamp(w, 0.02, 0.98)).rgb, texture2D(uImage, clamp(w2, 0.02, 0.98)).rgb,
+                 0.5 + 0.5 * sin(t * 3.0 + q.x * 6.0));
+    float luma = dot(c, vec3(0.3, 0.59, 0.11));
+    c = clamp(mix(vec3(luma), c, 1.45), 0.0, 1.0);
+    c = c * (0.50 + 0.12 * uEnergy) + vec3(0.02, 0.025, 0.03);
+    c *= 1.0 - smoothstep(0.35, 1.05, length((uv - 0.5) * vec2(1.1, 1.3))) * 0.45;
+    return c;
 }
 void main() {
     vec2 uv = gl_FragCoord.xy / uSize;
@@ -384,7 +443,12 @@ void main() {
     else if (uBackdrop < 5.5) color = monet(uv);
     else if (uBackdrop < 6.5) color = nomand(uv);
     else if (uBackdrop < 7.5) color = latent(uv);
-    else color = sora(uv);
+    else if (uBackdrop < 8.5) color = sora(uv);
+    else color = fluid(uv);
+    // Shared breath: a soft bloom from the centre on each pulse, a touch dimmer in gaps and pauses.
+    float bloom = exp(-length((uv - 0.5) * vec2(uSize.x / uSize.y, 1.0)) * 2.2);
+    color *= 0.88 + 0.12 * uEnergy;
+    color += color * uPulse * 0.42 * bloom;
     color += (hash(gl_FragCoord.xy) - 0.5) * 0.008;
     gl_FragColor = vec4(color, 1.0);
 }

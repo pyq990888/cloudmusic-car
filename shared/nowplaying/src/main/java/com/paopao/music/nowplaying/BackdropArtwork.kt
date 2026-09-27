@@ -17,10 +17,13 @@ import kotlinx.coroutines.withContext
 
 @Composable
 internal fun rememberBackdropArtwork(source: NowPlayingSource, cover: String?, imageName: String?, backdrop: ImmersiveBackdrop): Bitmap? {
-    val needsImage = backdrop in listOf(ImmersiveBackdrop.COMMON, ImmersiveBackdrop.MONET, ImmersiveBackdrop.NOMAND, ImmersiveBackdrop.LATENT)
+    val needsImage = backdrop in listOf(
+        ImmersiveBackdrop.COMMON, ImmersiveBackdrop.MONET, ImmersiveBackdrop.NOMAND, ImmersiveBackdrop.LATENT, ImmersiveBackdrop.FLUID,
+    )
+    val thumbnail = backdrop == ImmersiveBackdrop.FLUID
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(needsImage, cover, imageName) {
+    LaunchedEffect(needsImage, thumbnail, cover, imageName) {
         bitmap = null
         if (!needsImage) return@LaunchedEffect
         try {
@@ -42,7 +45,7 @@ internal fun rememberBackdropArtwork(source: NowPlayingSource, cover: String?, i
                 Bitmap.createBitmap((w * ratio).toInt().coerceAtLeast(1), (h * ratio).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888).also {
                     drawable.setBounds(0, 0, it.width, it.height)
                     drawable.draw(Canvas(it))
-                }
+                }.let { full -> if (thumbnail) fluidThumbnail(full) else full }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -51,4 +54,15 @@ internal fun rememberBackdropArtwork(source: NowPlayingSource, cover: String?, i
         }
     }
     return bitmap
+}
+
+/** Halve in steps so the 24 px result averages the whole cover instead of point-sampling it. */
+private fun fluidThumbnail(source: Bitmap): Bitmap {
+    var current = source
+    while (maxOf(current.width, current.height) > 48) {
+        val next = Bitmap.createScaledBitmap(current, (current.width / 2).coerceAtLeast(1), (current.height / 2).coerceAtLeast(1), true)
+        if (current !== source) current.recycle()
+        current = next
+    }
+    return Bitmap.createScaledBitmap(current, 24, 24, true).also { if (current !== source && current !== it) current.recycle() }
 }

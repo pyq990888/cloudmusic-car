@@ -120,6 +120,11 @@ fun ImmersiveLyricsScreen(
     val mutedColor = backdrop.muted
     val accent = backdrop.accent
     val reducedMotion = settings.reducedMotion
+    val backdropEnergy = when {
+        !playing -> 0.15f
+        verse.line == null -> 0.4f
+        else -> 1f
+    }
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
     var interaction by remember { mutableIntStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
@@ -169,7 +174,8 @@ fun ImmersiveLyricsScreen(
         } else {
             InkFlowBackground(
                 running = playing && !reducedMotion, foreground = foreground,
-                backdrop = backdrop, artwork = artwork, modifier = Modifier.fillMaxSize(),
+                backdrop = backdrop, artwork = artwork,
+                beat = verse.index, energy = backdropEnergy, modifier = Modifier.fillMaxSize(),
             )
         }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
