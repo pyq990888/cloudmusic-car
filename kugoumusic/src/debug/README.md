@@ -40,11 +40,11 @@ These are native adaptations of the four Folia visual languages, not the
 Folia web renderer or its complete tuning and audio-analysis system.
 LRC-only tracks do not invent word timings.
 
-Backgrounds: ink, water ripples, aurora curtains, light trails, Common, Monet,
-Nomand, Latent, Sora, and an imported image. Common uses drifting geometry;
-Monet applies painterly sampling; Nomand applies fluted glass; Latent combines
-color fields and ordered dithering; Sora is a moving star field. Image-based
-effects prefer album artwork and fall back to the imported image.
+Backgrounds: ink, water ripples, aurora curtains, Common, Monet, Latent, Sora,
+and an imported image. Common uses drifting geometry; Monet applies painterly
+sampling; Latent combines color fields and ordered dithering; Sora is a moving
+star field. Image-based effects prefer album artwork and fall back to the
+imported image.
 
 The background menu imports PNG, JPEG, GIF, or WebP through Android's document
 picker. Imports are local only, capped at 32 MiB and validated before replacing

@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun rememberBackdropArtwork(source: NowPlayingSource, cover: String?, imageName: String?, backdrop: ImmersiveBackdrop): Bitmap? {
     val needsImage = backdrop in listOf(
-        ImmersiveBackdrop.COMMON, ImmersiveBackdrop.MONET, ImmersiveBackdrop.NOMAND, ImmersiveBackdrop.LATENT, ImmersiveBackdrop.FLUID,
+        ImmersiveBackdrop.COMMON, ImmersiveBackdrop.MONET, ImmersiveBackdrop.LATENT, ImmersiveBackdrop.FLUID,
     )
     val thumbnail = backdrop == ImmersiveBackdrop.FLUID
     val context = LocalContext.current

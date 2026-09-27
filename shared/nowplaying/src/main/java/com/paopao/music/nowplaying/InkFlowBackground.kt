@@ -305,8 +305,11 @@ vec3 ink(vec2 uv) {
     float vein = pow(1.0 - abs(fold), 7.0);
     float body = smoothstep(0.22, 0.80, n);
     float haze = smoothstep(0.18, 0.75, r.x) * 0.22;
-    float light = body * 0.50 + vein * (0.22 + uPulse * 0.30) + haze;
-    vec3 color = vec3(0.017, 0.027, 0.028) + vec3(0.51, 0.64, 0.61) * light;
+    float bloom = smoothstep(0.18, 0.92, n) * (0.18 + 0.12 * sin(t + r.y * 7.0));
+    float light = body * 0.42 + vein * (0.30 + uPulse * 0.34) + haze + bloom;
+    vec3 color = vec3(0.020, 0.024, 0.026) + vec3(0.47, 0.63, 0.58) * light;
+    color += vec3(0.60, 0.30, 0.20) * smoothstep(0.58, 0.92, r.y) * (0.10 + 0.10 * uPulse);
+    color += vec3(0.76, 0.68, 0.45) * vein * 0.08;
     float edge = smoothstep(0.05, 0.70, length((uv - 0.5) * vec2(0.9, 1.1)));
     color *= mix(0.54, 0.88, edge);
     return color;
@@ -334,20 +337,6 @@ vec3 aurora(vec2 uv) {
     color += vec3(0.14, 0.62, 0.40) * curtain * ribs * (0.44 + 0.26 * uEnergy + 0.38 * uPulse);
     float coral = exp(-abs(uv.y - 0.18 + sin(uv.x * 4.0 + t * 0.5) * 0.07) * 13.0);
     color += vec3(0.52, 0.20, 0.13) * coral * (0.45 + uv.x * 0.3);
-    return color;
-}
-vec3 trails(vec2 uv) {
-    vec3 color = vec3(0.028, 0.024, 0.025);
-    float t = uTime * 0.16;
-    for (int i = 0; i < 7; i++) {
-        float k = float(i);
-        float curve = 0.12 + k * 0.105 + sin(uv.x * 3.8 + t + k * 0.48) * 0.085;
-        float line = exp(-abs(uv.y - curve) * 460.0);
-        float glow = exp(-abs(uv.y - curve) * 68.0) * 0.065;
-        float sweep = pow(0.5 + 0.5 * cos(uv.x * 5.0 - t * 2.0 + k), 3.0);
-        vec3 tint = mix(vec3(0.94, 0.51, 0.23), vec3(0.30, 0.67, 0.65), mod(k, 2.0));
-        color += tint * (line * (0.15 + sweep * (0.45 + 0.35 * uEnergy + 0.6 * uPulse)) + glow * (0.8 + uPulse));
-    }
     return color;
 }
 vec3 picture(vec2 uv) {
@@ -384,13 +373,6 @@ vec3 monet(vec2 uv) {
     c = mix(vec3(luma), c, 0.75);
     c = mix(c, vec3(0.68, 0.56, 0.58), 0.14);
     return c * 0.52 + brush.x * 0.018;
-}
-vec3 nomand(vec2 uv) {
-    float flute = sin(uv.x * 150.0);
-    vec2 p = uv + vec2(flute * 0.018, sin(uTime * 0.08 + uv.x * 3.0) * 0.01);
-    vec3 c = picture(p);
-    float highlight = pow(max(0.0, flute), 9.0) * 0.13;
-    return c * 0.43 + vec3(highlight);
 }
 vec3 latent(vec2 uv) {
     float t = uTime * 0.06;
@@ -432,18 +414,128 @@ vec3 fluid(vec2 uv) {
     c *= 1.0 - smoothstep(0.35, 1.05, length((uv - 0.5) * vec2(1.1, 1.3))) * 0.45;
     return c;
 }
+// Particles orbit a soft centre and leave thin, glyph-like traces. The lyric layer stays readable above it.
+vec3 kinetic(vec2 uv) {
+    vec2 p = (uv - 0.5) * vec2(uSize.x / uSize.y, 1.0);
+    float t = uTime * 0.18;
+    vec3 color = vec3(0.035, 0.022, 0.027);
+    float halo = exp(-length(p * vec2(0.85, 1.05)) * 2.2);
+    color += vec3(0.23, 0.12, 0.10) * halo * (0.55 + 0.35 * uEnergy + 0.5 * uPulse);
+    for (int i = 0; i < 32; i++) {
+        float k = float(i);
+        float seed = hash(vec2(k, 9.4));
+        float radius = 0.10 + seed * 0.78 + uPulse * 0.08;
+        float angle = k * 2.39996 + t * (0.34 + seed * 0.32) * (mod(k, 2.0) * 2.0 - 1.0);
+        vec2 pos = vec2(cos(angle), sin(angle)) * vec2(radius, radius * 0.66);
+        float d = length(p - pos);
+        float spark = exp(-d * (150.0 + seed * 170.0)) * (0.22 + 0.68 * uEnergy + 0.8 * uPulse);
+        float trail = exp(-abs(length(p) - radius) * 38.0) * exp(-abs(atan(p.y, p.x) - angle) * 3.4) * 0.025;
+        vec3 tint = mix(vec3(0.55, 0.86, 0.79), vec3(0.94, 0.58, 0.30), step(0.58, seed));
+        color += tint * (spark + trail);
+    }
+    float sweep = exp(-abs(p.y - sin(p.x * 3.4 + t) * 0.12) * 26.0) * 0.045;
+    color += vec3(0.20, 0.54, 0.55) * sweep;
+    return color;
+}
+vec3 eclipse(vec2 uv) {
+    vec2 p = (uv - vec2(0.69, 0.42)) * vec2(uSize.x / uSize.y, 1.0);
+    float t = uTime * 0.12;
+    vec3 color = vec3(0.012, 0.021, 0.043);
+    vec2 starUv = uv * vec2(42.0, 25.0) + vec2(t * 0.12, 0.0);
+    vec2 cell = floor(starUv);
+    float starSeed = hash(cell);
+    vec2 star = fract(starUv) - vec2(0.18 + hash(cell + 2.0) * 0.64, 0.16 + hash(cell + 5.0) * 0.68);
+    float starLight = exp(-dot(star, star) * 680.0) * step(0.57, starSeed);
+    color += mix(vec3(0.54, 0.70, 0.84), vec3(1.0, 0.67, 0.38), step(0.86, starSeed)) * starLight * (0.48 + 0.52 * uEnergy + uPulse * 0.7);
+    for (int i = 0; i < 3; i++) {
+        float seed = hash(vec2(float(i), 31.7));
+        float phase = fract(uTime * 0.055 + seed);
+        float active = smoothstep(0.20, 0.29, phase) * (1.0 - smoothstep(0.58, 0.68, phase));
+        vec2 direction = normalize(vec2(-1.0, -0.48));
+        vec2 head = vec2(1.22 + seed * 0.18 - phase * 2.15, 0.88 + seed * 0.10 - phase * 1.05);
+        vec2 tail = head - direction * 0.18;
+        vec2 segment = head - tail;
+        float along = clamp(dot(uv - tail, segment) / dot(segment, segment), 0.0, 1.0);
+        float distanceToTrail = length(uv - (tail + segment * along));
+        float trail = exp(-distanceToTrail * 720.0) * active * (0.22 + along * 0.78);
+        float mist = exp(-distanceToTrail * 110.0) * active * 0.10;
+        float spark = exp(-length(uv - head) * 260.0) * active;
+        vec3 meteorColor = mix(vec3(0.52, 0.82, 1.0), vec3(1.0, 0.72, 0.48), step(0.58, seed));
+        color += meteorColor * (trail * (0.75 + 0.35 * uEnergy) + mist + spark * (0.35 + 0.45 * uPulse));
+    }
+    float d = length(p * vec2(1.0, 1.04));
+    float corona = exp(-abs(d - 0.302) * 15.0) * (0.30 + 0.26 * uEnergy + 0.56 * uPulse);
+    color += vec3(0.83, 0.44, 0.21) * corona;
+    float tilt = 0.523599;
+    vec2 tilted = mat2(cos(tilt), -sin(tilt), sin(tilt), cos(tilt)) * p;
+    vec2 ringPoint = vec2(tilted.x + tilted.y * 0.10, tilted.y * 1.75 - tilted.x * 0.04);
+    float ringDistance = length(ringPoint);
+    float ring = exp(-abs(ringDistance - 0.36) * 150.0) + exp(-abs(ringDistance - 0.45) * 210.0) * 0.58;
+    float frontArc = 1.0 - smoothstep(-0.018, 0.018, ringPoint.y);
+    float ringAngle = atan(ringPoint.y, ringPoint.x);
+    float sweepAngle = ringAngle - uTime * 0.28;
+    float sweepDelta = atan(sin(sweepAngle), cos(sweepAngle));
+    float sweep = exp(-abs(sweepDelta) * 8.0) * exp(-abs(ringDistance - 0.405) * 38.0);
+    float sweepFront = sweep * frontArc;
+    float beadPattern = pow(max(0.0, cos(ringAngle * 4.0 - uTime * 0.72)), 22.0);
+    float beads = beadPattern * exp(-abs(ringDistance - 0.36) * 52.0);
+    float ringGlow = 0.30 + 0.28 * uPulse;
+    color += vec3(0.87, 0.58, 0.32) * ring * (1.0 - frontArc) * ringGlow;
+    color += vec3(0.98, 0.76, 0.45) * sweep * (1.0 - frontArc) * 0.42;
+    color += vec3(0.30, 0.72, 0.95) * beads * (1.0 - frontArc) * 0.78;
+    float planet = 1.0 - smoothstep(0.292, 0.308, d);
+    color = mix(color, vec3(0.0), planet);
+    color += vec3(0.87, 0.58, 0.32) * ring * frontArc * (ringGlow + 0.08);
+    color += vec3(0.98, 0.76, 0.45) * sweepFront * 0.5;
+    color += vec3(0.30, 0.72, 0.95) * beads * frontArc * 0.92;
+    float limb = exp(-abs(d - 0.302) * 165.0) * smoothstep(-0.20, 0.12, p.x + p.y * 0.12) * (1.0 - planet);
+    color += vec3(1.0, 0.67, 0.37) * limb * (0.22 + 0.5 * uPulse);
+    color *= 1.0 - smoothstep(0.75, 1.25, length((uv - 0.5) * vec2(1.0, 1.15))) * 0.36;
+    return color;
+}
+vec3 cyber(vec2 uv) {
+    vec3 color = vec3(0.018, 0.008, 0.035);
+    float t = uTime * 0.42;
+    float pulse = 0.4 + 0.6 * uPulse + 0.15 * uEnergy;
+    vec2 p = (uv - vec2(0.5, 0.64)) * vec2(uSize.x / uSize.y, 1.0);
+    float horizon = 0.48;
+    float gridY = abs(fract((uv.y - horizon) * 15.0 / max(0.02, 1.0 - horizon)) - 0.5);
+    float grid = exp(-gridY * 110.0) * smoothstep(horizon, 1.0, uv.y);
+    float gridX = abs(fract((uv.x - 0.5) * 18.0 + (uv.y - horizon) * 2.2) - 0.5);
+    grid += exp(-gridX * 120.0) * smoothstep(horizon, 1.0, uv.y) * 0.75;
+    color += vec3(0.13, 0.48, 0.54) * grid * (0.22 + pulse * 0.32);
+    for (int i = 0; i < 24; i++) {
+        float k = float(i);
+        float level = 0.08 + 0.34 * (0.5 + 0.5 * sin(k * 1.73 + t * (1.0 + uEnergy))) * (0.6 + 0.6 * uPulse);
+        float x = (k + 0.5) / 24.0;
+        float bar = exp(-abs(uv.x - x) * 240.0) * smoothstep(horizon - level, horizon - level + 0.012, uv.y) * step(uv.y, horizon);
+        float body = step(horizon - level, uv.y) * step(uv.y, horizon) * exp(-abs(uv.x - x) * 125.0);
+        vec3 tint = mod(k, 3.0) < 1.0 ? vec3(1.0, 0.16, 0.68) : (mod(k, 3.0) < 2.0 ? vec3(0.16, 0.88, 1.0) : vec3(0.70, 1.0, 0.22));
+        color += tint * (bar * (0.34 + pulse * 0.66) + body * 0.025);
+    }
+    for (int i = 0; i < 4; i++) {
+        float k = float(i);
+        float beam = abs(p.y - sin(p.x * 2.0 + t * (0.8 + k * 0.24) + k) * 0.22);
+        color += mix(vec3(1.0, 0.10, 0.72), vec3(0.08, 0.85, 1.0), mod(k, 2.0)) * exp(-beam * 175.0) * (0.10 + 0.15 * pulse);
+    }
+    float centre = exp(-length(p * vec2(1.0, 1.5)) * 4.0);
+    color += vec3(0.35, 0.13, 0.50) * centre * (0.25 + 0.25 * uPulse);
+    return color;
+}
 void main() {
     vec2 uv = gl_FragCoord.xy / uSize;
     vec3 color;
     if (uBackdrop < 0.5) color = ink(uv);
     else if (uBackdrop < 1.5) color = ripple(uv);
     else if (uBackdrop < 2.5) color = aurora(uv);
-    else if (uBackdrop < 3.5) color = trails(uv);
-    else if (uBackdrop < 4.5) color = common(uv);
-    else if (uBackdrop < 5.5) color = monet(uv);
-    else if (uBackdrop < 6.5) color = nomand(uv);
-    else if (uBackdrop < 7.5) color = latent(uv);
-    else if (uBackdrop < 8.5) color = sora(uv);
+    else if (uBackdrop < 3.5) color = common(uv);
+    else if (uBackdrop < 4.5) color = monet(uv);
+    else if (uBackdrop < 5.5) color = latent(uv);
+    else if (uBackdrop < 6.5) color = sora(uv);
+    else if (uBackdrop < 7.5) color = fluid(uv);
+    else if (uBackdrop < 8.5) color = kinetic(uv);
+    else if (uBackdrop < 9.5) color = eclipse(uv);
+    else if (uBackdrop < 10.5) color = cyber(uv);
     else color = fluid(uv);
     // Shared breath: a soft bloom from the centre on each pulse, a touch dimmer in gaps and pauses.
     float bloom = exp(-length((uv - 0.5) * vec2(uSize.x / uSize.y, 1.0)) * 2.2);

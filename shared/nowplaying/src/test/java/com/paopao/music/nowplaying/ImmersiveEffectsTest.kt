@@ -56,8 +56,10 @@ class ImmersiveEffectsTest {
 
     @Test
     fun backgroundsAreDistinctAndSilverIsRemoved() {
-        assertEquals(11, ImmersiveBackdrop.entries.size)
-        assertEquals(11, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
+        assertEquals(12, ImmersiveBackdrop.entries.size)
+        assertEquals(12, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
         assertFalse(ImmersiveBackdrop.entries.any { it.name.contains("SILVER") })
+        assertFalse(ImmersiveBackdrop.entries.any { it.name == "TRAILS" || it.name == "NOMAND" })
+        assertEquals(listOf("歌词粒子", "月蚀星环", "夜店赛博"), ImmersiveBackdrop.entries.filter { it in setOf(ImmersiveBackdrop.KINETIC, ImmersiveBackdrop.ECLIPSE, ImmersiveBackdrop.CYBER) }.map { it.label })
     }
 }

@@ -10,16 +10,17 @@ internal enum class ImmersiveBackdrop(
     val accent: Color,
     val swatch: Color,
 ) {
-    INK("水墨", Color(0xFFF3F6F2), Color(0xFFB1BCB9), Color(0xFFB9DCCF), Color(0xFF51766B)),
+    INK("墨水生长", Color(0xFFF3F6F2), Color(0xFFB1BCB9), Color(0xFFB9DCCF), Color(0xFF51766B)),
     RIPPLE("水面涟漪", Color(0xFF152C29), Color(0xFF4E6962), Color(0xFF254F43), Color(0xFFCCDCD1)),
     AURORA("极光光幕", Color(0xFFFFF8F1), Color(0xFFC1CCC8), Color(0xFFF2C3A6), Color(0xFF86CCAD)),
-    TRAILS("流光线条", Color(0xFFFFF8F0), Color(0xFFC3C0B9), Color(0xFFFFCC94), Color(0xFFD99961)),
     COMMON("通用", Color(0xFFF3F5FF), Color(0xFFB7BFCA), Color(0xFF88D8D0), Color(0xFF619FAD)),
     MONET("莫奈", Color(0xFFFCF6F0), Color(0xFFD4C7C6), Color(0xFFF1B7A7), Color(0xFFCEB4AB)),
-    NOMAND("漫游", Color(0xFFF7F4EE), Color(0xFFC3C0B8), Color(0xFFAAD9CE), Color(0xFF81978B)),
     LATENT("隐现", Color(0xFFF8F3F1), Color(0xFFC7BCB9), Color(0xFFF7BAA2), Color(0xFFB98687)),
     SORA("空", Color(0xFFF3F6FF), Color(0xFFB4BED3), Color(0xFFDFBBD2), Color(0xFF7086A8)),
     FLUID("流体封面", Color(0xFFFBF7F4), Color(0xFFC9C2C0), Color(0xFFFFD6B8), Color(0xFFB07A8C)),
+    KINETIC("歌词粒子", Color(0xFFFFF4E6), Color(0xFFCAB9AA), Color(0xFFEFBB76), Color(0xFF8BE0DC)),
+    ECLIPSE("月蚀星环", Color(0xFFFFF2D5), Color(0xFFB8C4D2), Color(0xFFF7C98E), Color(0xFF638AA4)),
+    CYBER("夜店赛博", Color(0xFFF7F7FF), Color(0xFFB6B6D2), Color(0xFFFF38D1), Color(0xFF49F6FF)),
     CUSTOM("自定义图片", Color.White, Color(0xFFD0D0D0), Color(0xFFCDE6DC), Color(0xFF9CACA6)),
 }
 
