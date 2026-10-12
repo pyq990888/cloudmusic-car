@@ -33,6 +33,7 @@ internal fun rememberBackdropArtwork(source: NowPlayingSource, cover: String?, i
                         ImageRequest.Builder(context).data(source.artworkUrl(it, 640)).size(640).allowHardware(false).build(),
                     ).drawable
                 } ?: backgroundFile(context, imageName)?.let { file ->
+                    if (isSupportedVideoHeader(backgroundHeader(file))) return@let null
                     ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
                         val ratio = minOf(1f, 640f / maxOf(info.size.width, info.size.height))
                         decoder.setTargetSize((info.size.width * ratio).toInt().coerceAtLeast(1), (info.size.height * ratio).toInt().coerceAtLeast(1))

@@ -146,13 +146,15 @@ internal fun ImmersiveSettingsActions(
                 }
                 HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 12.dp))
                 DropdownMenuItem(
-                    text = { SettingsMenuLabel("导入图片 / GIF / WebP", textSize) },
+                    text = { SettingsMenuLabel("导入图片 / GIF / MP4", textSize) },
                     leadingIcon = { Icon(Icons.Rounded.FileUpload, null, tint = SettingsMenuText) },
                     onClick = {
                         dismiss()
                         if (picker == null) onError("当前宿主未提供文件选择器，请在独立 APK 中导入")
                         else try {
-                            picker.launch(arrayOf("image/png", "image/jpeg", "image/gif", "image/webp"))
+                            picker.launch(
+                                arrayOf("image/png", "image/jpeg", "image/gif", "image/webp", "video/mp4", "video/quicktime"),
+                            )
                         } catch (_: Exception) {
                             onError("无法打开系统文件选择器")
                         }
@@ -161,9 +163,10 @@ internal fun ImmersiveSettingsActions(
                     contentPadding = SettingsMenuItemPadding,
                 )
                 if (settings.imageName != null) {
+                    val kind = if (settings.imageVideo) "视频" else "图片"
                     Column(Modifier.padding(horizontal = 16.dp)) {
                         Text(
-                            "背景遮罩",
+                            "$kind 背景遮罩",
                             color = SettingsMenuText,
                             fontSize = textSize,
                             lineHeight = textSize * 1.35f,
@@ -172,7 +175,7 @@ internal fun ImmersiveSettingsActions(
                         Slider(value = dim, onValueChange = { dim = it }, onValueChangeFinished = { store.dim(dim) }, valueRange = 0f..0.8f)
                     }
                     DropdownMenuItem(
-                        text = { SettingsMenuLabel("移除导入的图片", textSize, SettingsMenuDanger) },
+                        text = { SettingsMenuLabel("移除导入的$kind", textSize, SettingsMenuDanger) },
                         onClick = {
                             dismiss()
                             scope.launch {

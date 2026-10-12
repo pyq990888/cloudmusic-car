@@ -56,6 +56,26 @@ class FoliaModesTest {
         assertArrayEquals(bytes, out.toByteArray())
     }
 
+    @Test fun mp4HeadersAreRecognisedAndKeptApartFromImages() {
+        fun ftyp(brand: String) = "0000ftyp${brand}0000".toByteArray(Charsets.ISO_8859_1)
+        assertTrue(isSupportedVideoHeader(ftyp("isom")))
+        assertTrue(isSupportedVideoHeader(ftyp("mp42")))
+        assertTrue(isSupportedVideoHeader(ftyp("qt  ")))
+        assertFalse(isSupportedVideoHeader(ftyp("XXXX")))
+        assertFalse(isSupportedVideoHeader("0000ftyp".toByteArray()))
+        assertFalse(isSupportedVideoHeader(byteArrayOf()))
+        assertFalse(isSupportedVideoHeader(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 0xff.toByte(), 0)))
+        assertFalse(isSupportedImageHeader(ftyp("isom")))
+    }
+
+    @Test fun videoCopyUsesItsOwnLimitAndLabel() {
+        val bytes = ByteArray(64) { 7 }
+        val out = ByteArrayOutputStream()
+        assertEquals(bytes.size.toLong(), copyImageBounded(ByteArrayInputStream(bytes), out, MAX_BACKGROUND_VIDEO_BYTES, "视频"))
+        assertArrayEquals(bytes, out.toByteArray())
+        assertTrue(MAX_BACKGROUND_VIDEO_BYTES > MAX_BACKGROUND_BYTES)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun oversizedImageIsRejected() {
         copyImageBounded(ByteArrayInputStream(ByteArray(101)), ByteArrayOutputStream(), 100)

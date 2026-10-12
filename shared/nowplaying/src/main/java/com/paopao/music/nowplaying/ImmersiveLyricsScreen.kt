@@ -165,11 +165,18 @@ fun ImmersiveLyricsScreen(
             },
     ) {
         if (backdrop == ImmersiveBackdrop.CUSTOM && settings.imageName != null) {
-            ImportedImageBackground(
-                settings.imageName, running = playing && foreground && !reducedMotion,
-                onError = { reportError(it); store.backdrop(ImmersiveBackdrop.INK) },
-                modifier = Modifier.fillMaxSize(),
-            )
+            val backgroundError: (String) -> Unit = { reportError(it); store.backdrop(ImmersiveBackdrop.INK) }
+            if (settings.imageVideo) {
+                ImportedVideoBackground(
+                    settings.imageName, running = playing && foreground && !reducedMotion,
+                    onError = backgroundError, modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                ImportedImageBackground(
+                    settings.imageName, running = playing && foreground && !reducedMotion,
+                    onError = backgroundError, modifier = Modifier.fillMaxSize(),
+                )
+            }
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.imageDim)))
         } else {
             InkFlowBackground(

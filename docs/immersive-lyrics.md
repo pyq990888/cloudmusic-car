@@ -57,6 +57,7 @@ shared/nowplaying/src/main/java/com/paopao/music/nowplaying/ImmersivePreferences
 | `image_file` | 私有目录中的自定义背景文件名 |
 | `image_label` | 自定义背景显示名称 |
 | `image_dim` | 自定义背景遮罩透明度 |
+| `image_video` | 自定义背景是否为 MP4 视频 |
 
 ## Folia 风格歌词模式
 
@@ -152,11 +153,12 @@ shared/nowplaying/src/main/java/com/paopao/music/nowplaying/BackdropArtwork.kt
 
 - GLES 背景停止推进；
 - GIF / 动态 WebP 停止播放；
+- MP4 视频背景暂停；
 - 歌词入场和漂移停止；
 - 已有逐字时间高亮仍继续更新；
 - 页面离开后停止背景和歌词的逐帧更新。
 
-## 自定义图片背景
+## 自定义背景（图片 / 视频）
 
 入口位于右上角的背景菜单，支持：
 
@@ -164,23 +166,30 @@ shared/nowplaying/src/main/java/com/paopao/music/nowplaying/BackdropArtwork.kt
 - JPEG
 - GIF
 - WebP
+- MP4 / QuickTime（H.264 等设备原生可解码的编码）
 
 导入流程：
 
-1. 通过 Android 文件选择器选择图片；
+1. 通过 Android 文件选择器选择文件；
 2. 复制到应用私有目录；
-3. 校验文件头；
-4. 校验图片分辨率；
+3. 按文件头区分图片和 MP4 视频；
+4. 图片校验分辨率，视频用 `MediaExtractor` 校验容器与画面轨道（只读元数据，不申请解码器）；
 5. 成功后原子更新设置；
 6. 删除上一个自定义背景文件。
 
 限制：
 
-- 最大文件大小：32 MiB；
-- 最大像素数：80,000,000；
+- 图片最大文件大小：32 MiB，视频最大文件大小：128 MiB；
+- 图片最大像素数：80,000,000；
+- 视频不限制时长和分辨率，使用系统 `MediaPlayer` 解码，能否播放取决于车机芯片；
 - 不申请广泛存储权限；
 - 不永久保存外部 URI 权限；
 - GIF / 动态 WebP 使用 `AnimatedImageDrawable` 播放；
+- MP4 使用 `TextureView` + `MediaPlayer` 循环播放，静音，用 `setTransform` 按 CENTER_CROP 铺满并随横竖屏重算；
+- 播放器生命周期跟着纹理走，`setSurface` 在 `prepareAsync` 之前完成，纹理重建后自动重走一遍；此前「先 prepare 再补绑 Surface」正是导入后偶发黑屏的原因；
+- 起播后 2 秒内纹理一帧都没收到（车机上偶发拿不到硬解）就自动重建播放器，最多 3 次，等价于手动切几次背景但不需要用户操作，仍失败才回退到墨水背景并提示；
+- 导入校验不占用解码器：导入时若先开一个 `MediaPlayer`，紧接着页面再开一个，车机唯一的一路硬解会偶发抢不到而黑屏；
+- 暂停、低动态、离开沉浸页时视频暂停，销毁时释放解码器，避免后台占用；
 - 导入失败时保留原背景。
 
 文件实现位置：
@@ -303,10 +312,14 @@ adb -s emulator-5554 shell am start -n com.kugoumusic.car/.preview.ImmersivePrev
 - 内置背景都能切换；
 - 静态图片可以导入；
 - GIF / WebP 可以导入并播放；
-- 暂停、低动态、离开页面后动态效果停止；
+- MP4 视频可以导入并循环播放，删除按钮可移除；
+- 横竖屏切换后视频仍然铺满，不出现缩放不完整或残留旧比例；
+- 连续多次导入视频、切后台再回到沉浸页，画面仍正常显示；
+- 导入后偶发不出画时能自动恢复，无需手动切背景（`adb logcat -s ImmersiveBg` 可见自恢复日志）；
+- 暂停、低动态、离开页面后动态效果停止（含视频暂停）；
 - 重启后模式、字体、背景和自定义图片仍可恢复；
 - `:kugoumusic:testDebugUnitTest` 通过；
 - `:app:compileDebugKotlin` 和 `:qqmusic:compileDebugKotlin` 通过；
 - release 类包不包含 Debug 预览 Activity。
 
-最近一次验证包含 38 项单元测试，全部通过。
+最近一次验证包含 40 项单元测试，全部通过。

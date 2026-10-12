@@ -21,7 +21,7 @@ internal enum class ImmersiveBackdrop(
     KINETIC("歌词粒子", Color(0xFFFFF4E6), Color(0xFFCAB9AA), Color(0xFFEFBB76), Color(0xFF8BE0DC)),
     ECLIPSE("月蚀星环", Color(0xFFFFF2D5), Color(0xFFB8C4D2), Color(0xFFF7C98E), Color(0xFF638AA4)),
     CYBER("夜店赛博", Color(0xFFF7F7FF), Color(0xFFB6B6D2), Color(0xFFFF38D1), Color(0xFF49F6FF)),
-    CUSTOM("自定义图片", Color.White, Color(0xFFD0D0D0), Color(0xFFCDE6DC), Color(0xFF9CACA6)),
+    CUSTOM("自定义背景", Color.White, Color(0xFFD0D0D0), Color(0xFFCDE6DC), Color(0xFF9CACA6)),
 }
 
 internal enum class FoliaLyricMode(val label: String) {

@@ -18,6 +18,7 @@ internal data class ImmersivePreferences(
     val imageName: String? = null,
     val imageLabel: String? = null,
     val imageDim: Float = 0.35f,
+    val imageVideo: Boolean = false,
 )
 
 internal class ImmersivePreferenceStore(context: Context) {
@@ -31,6 +32,7 @@ internal class ImmersivePreferenceStore(context: Context) {
         imageName = preferences.getString("image_file", null),
         imageLabel = preferences.getString("image_label", null),
         imageDim = preferences.getFloat("image_dim", 0.35f).coerceIn(0f, 0.8f),
+        imageVideo = preferences.getBoolean("image_video", false),
     )
 
     fun mode(value: FoliaLyricMode) { preferences.edit().putString("mode", value.name).apply() }
