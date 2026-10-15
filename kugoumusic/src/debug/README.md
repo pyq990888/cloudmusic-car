@@ -18,6 +18,9 @@ Optional intent extras:
 - `--ez standard true`: start on the cover page to test swipe navigation.
 - `--el line_interval 4000`: shorten the silent fixture's lines for comparing
   all four transitions in one short recording.
+- `--es mode KINTSUGI --es backdrop MOONLAKE --es font SWEI --ez reduced true`:
+  pin a lyric mode, backdrop, font, or reduced motion before launch (enum names
+  from `ImmersiveEffects.kt`).
 
 The three pages are spatially ordered as immersive / cover / regular lyrics.
 From the cover, swipe right for the immersive page, or left for regular lyrics.

@@ -56,10 +56,18 @@ class ImmersiveEffectsTest {
 
     @Test
     fun backgroundsAreDistinctAndSilverIsRemoved() {
-        assertEquals(12, ImmersiveBackdrop.entries.size)
-        assertEquals(12, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
+        assertEquals(15, ImmersiveBackdrop.entries.size)
+        assertEquals(15, ImmersiveBackdrop.entries.map { it.swatch }.toSet().size)
         assertFalse(ImmersiveBackdrop.entries.any { it.name.contains("SILVER") })
         assertFalse(ImmersiveBackdrop.entries.any { it.name == "TRAILS" || it.name == "NOMAND" })
-        assertEquals(listOf("歌词粒子", "月蚀星环", "夜店赛博"), ImmersiveBackdrop.entries.filter { it in setOf(ImmersiveBackdrop.KINETIC, ImmersiveBackdrop.ECLIPSE, ImmersiveBackdrop.CYBER) }.map { it.label })
+        // The menu lists scenes and lyric effects first, then artwork sampling, then the import slot.
+        assertEquals(
+            listOf(
+                "墨水生长", "水面涟漪", "极光光幕", "远山含黛", "深蓝鲸落", "暮色沙丘",
+                "空", "月蚀星环", "歌词粒子", "夜店赛博",
+                "通用", "莫奈", "隐现", "流体封面", "自定义背景",
+            ),
+            ImmersiveBackdrop.entries.map { it.label },
+        )
     }
 }

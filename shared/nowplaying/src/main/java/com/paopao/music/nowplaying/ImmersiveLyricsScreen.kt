@@ -86,6 +86,8 @@ fun ImmersiveLyricsScreen(
     onClose: () -> Unit,
     accentColor: Color,
     active: Boolean = true,
+    /** 翻页停稳（不在拖动 / 惯性中）才跑逐帧动画，避免和翻页动画抢帧。 */
+    settled: Boolean = true,
     onOverlayChanged: (Boolean) -> Unit = {},
     onControlsChanged: (Boolean) -> Unit = {},
     onForegroundChanged: (Color) -> Unit = {},
@@ -106,6 +108,8 @@ fun ImmersiveLyricsScreen(
         onDispose { lifecycle.removeObserver(observer) }
     }
     val foreground = active && lifecycleForeground
+    /** 真正跑逐帧动画的条件；翻页过程中为 false，只保留静止的一帧。 */
+    val animating = foreground && settled
     val clock = rememberPlaybackClock(source, active = foreground)
     val verse by remember(lines, clock) {
         derivedStateOf { immersiveVerse(lines, clock.position.longValue + LyricLeadMs) }
@@ -180,7 +184,7 @@ fun ImmersiveLyricsScreen(
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.imageDim)))
         } else {
             InkFlowBackground(
-                running = playing && !reducedMotion, foreground = foreground,
+                running = animating && playing && !reducedMotion, foreground = foreground,
                 backdrop = backdrop, artwork = artwork,
                 beat = verse.index, energy = backdropEnergy, modifier = Modifier.fillMaxSize(),
             )
@@ -212,7 +216,7 @@ fun ImmersiveLyricsScreen(
                 FoliaLyricStage(
                     trackId = track?.id, index = verse.index, lines = lines,
                     fallback = track?.title ?: "此刻，听见音乐",
-                    clock = clock, playing = playing, foreground = foreground,
+                    clock = clock, playing = playing, foreground = foreground, animating = animating,
                     reducedMotion = reducedMotion, mode = settings.mode, typeface = typeface,
                     color = textColor, accent = accent, modifier = Modifier.weight(1f).fillMaxWidth(),
                 )

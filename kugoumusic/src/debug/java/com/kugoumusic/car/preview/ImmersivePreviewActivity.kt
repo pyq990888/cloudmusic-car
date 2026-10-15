@@ -13,6 +13,10 @@ import coil.ImageLoader
 import com.kugoumusic.car.data.MusicCache
 import com.kugoumusic.car.ui.theme.KuGouMusicTheme
 import com.paopao.music.nowplaying.PlayerPages
+import com.paopao.music.nowplaying.FoliaLyricMode
+import com.paopao.music.nowplaying.ImmersiveBackdrop
+import com.paopao.music.nowplaying.ImmersivePreferenceStore
+import com.paopao.music.nowplaying.LyricFont
 import com.paopao.music.nowplaying.LyricWord
 import com.paopao.music.nowplaying.NowPlayingLyric
 import com.paopao.music.nowplaying.NowPlayingNeighbors
@@ -39,6 +43,12 @@ class ImmersivePreviewActivity : ComponentActivity() {
         source.jumpTo(intent.getIntExtra("track", 0).coerceIn(0, 2))
         source.seekTo(intent.getLongExtra("position", 0L))
         if (intent.getBooleanExtra("paused", false)) source.togglePlay()
+        // Debug-only: pin a mode/backdrop/font so a screenshot run is deterministic.
+        val store = ImmersivePreferenceStore(this)
+        intent.getStringExtra("mode")?.let { name -> enumValues<FoliaLyricMode>().firstOrNull { it.name.equals(name, true) }?.let(store::mode) }
+        intent.getStringExtra("backdrop")?.let { name -> enumValues<ImmersiveBackdrop>().firstOrNull { it.name.equals(name, true) }?.let(store::backdrop) }
+        intent.getStringExtra("font")?.let { name -> enumValues<LyricFont>().firstOrNull { it.name.equals(name, true) }?.let(store::font) }
+        if (intent.hasExtra("reduced")) store.reduced(intent.getBooleanExtra("reduced", false))
         setContent {
             KuGouMusicTheme {
                 NowPlayingScreen(

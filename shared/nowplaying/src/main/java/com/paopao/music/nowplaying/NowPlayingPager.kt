@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
 import kotlinx.coroutines.launch
@@ -56,6 +57,11 @@ internal fun NowPlayingPager(
     var overlayOpen by remember { mutableStateOf(false) }
     var immersiveControls by remember { mutableStateOf(true) }
     var immersiveForeground by remember { mutableStateOf(Color.White) }
+    // 沉浸页要用的偏好和字体趁播放器刚打开就读出来：等用户滑过去时已经是热的，
+    // 不用再等 SharedPreferences 解析和字体文件构建。
+    val context = LocalContext.current
+    val immersiveFont = rememberImmersivePreferences().second.font
+    LaunchedEffect(context, immersiveFont) { preloadLyricTypeface(context, immersiveFont) }
     val returnToCover: () -> Unit = { scope.launch { pager.animateScrollToPage(PlayerPages.COVER) }; Unit }
     LaunchedEffect(pager.currentPage) {
         overlayOpen = false
@@ -68,13 +74,18 @@ internal fun NowPlayingPager(
             HorizontalPager(
                 state = pager,
                 userScrollEnabled = !overlayOpen,
-                beyondViewportPageCount = 0,
+                // 相邻页提前组合：沉浸页的冷启动（歌词光栅化、GL 表面与着色器）挪到播放器打开时，
+                // 不再压在手势的第一帧上。
+                beyondViewportPageCount = 1,
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 val active = pager.currentPage == page
+                // 拖动与惯性期间不算停稳；沉浸页的逐帧重活（GL 背景、歌词填色）都等翻页结束再开，
+                // 免得和翻页动画抢帧。
+                val settled = !pager.isScrollInProgress
                 when (page) {
                     PlayerPages.IMMERSIVE -> ImmersiveLyricsScreen(
-                        source, onClose = onClose, accentColor = accent, active = active,
+                        source, onClose = onClose, accentColor = accent, active = active, settled = settled,
                         onOverlayChanged = { if (active) overlayOpen = it },
                         onControlsChanged = { if (active) immersiveControls = it },
                         onForegroundChanged = { immersiveForeground = it },

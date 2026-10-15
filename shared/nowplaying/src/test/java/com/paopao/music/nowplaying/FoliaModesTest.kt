@@ -9,8 +9,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 class FoliaModesTest {
-    @Test fun exactFourRequestedModesAreExposed() {
-        assertEquals(listOf("流光", "心象", "云阶", "浮名"), FoliaLyricMode.entries.map { it.label })
+    @Test fun exactRequestedModesAreExposed() {
+        assertEquals(listOf("流光", "金缮", "水镜", "柔焦", "心象", "云阶", "浮名"), FoliaLyricMode.entries.map { it.label })
     }
 
     @Test fun slicesPreserveEveryCharacterAndOriginalOffsets() {
@@ -26,6 +26,9 @@ class FoliaModesTest {
     @Test fun modeLayoutsAreDifferentAndShortLinesAreBounded() {
         val line = "让每一首歌在车窗之外的夜色里慢慢流动"
         assertEquals(1, modeRowCount(FoliaLyricMode.LUMINOUS, line))
+        assertEquals(1, modeRowCount(FoliaLyricMode.KINTSUGI, line))
+        assertEquals(1, modeRowCount(FoliaLyricMode.MIRROR, line))
+        assertEquals(1, modeRowCount(FoliaLyricMode.SOFTFOCUS, line))
         assertTrue(modeRowCount(FoliaLyricMode.MINDSCAPE, line) > 1)
         assertEquals(2, modeRowCount(FoliaLyricMode.MINDSCAPE, "让声音 穿过人海"))
         assertTrue(modeRowCount(FoliaLyricMode.PARTITA, line) > 1)

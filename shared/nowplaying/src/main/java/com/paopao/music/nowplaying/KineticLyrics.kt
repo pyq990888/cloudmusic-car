@@ -140,7 +140,12 @@ internal fun rememberVisualTime(running: Boolean): LongState {
 
 internal data class GlyphSlice(val start: Int, val end: Int, val row: Int, val bounds: Rect)
 /** [glow] shares [bitmap]'s geometry, so a glyph's bounds inflated by [blur] address its halo. */
-internal data class LyricRaster(val bitmap: Bitmap, val glyphs: List<GlyphSlice>, val em: Float, val glow: Bitmap? = null, val blur: Int = 0)
+internal data class LyricRaster(
+    val bitmap: Bitmap, val glyphs: List<GlyphSlice>, val em: Float,
+    val glow: Bitmap? = null, val blur: Int = 0,
+    /** Blurred copy of [bitmap] for SOFTFOCUS's defocused under-layer; null unless requested. */
+    val soft: Bitmap? = null,
+)
 
 @Composable
 private fun RasterLyric(
@@ -225,8 +230,13 @@ internal fun buildLyricRaster(
     alignment: Layout.Alignment = Layout.Alignment.ALIGN_CENTER,
     maximumFontSize: Int = if (compact) 40 else 68,
     glow: Boolean = false,
+    /** Blur radius of the optional [LyricRaster.soft] layer as a fraction of the text size; 0 skips it. */
+    softBlur: Float = 0f,
 ): LyricRaster {
-    val padding = ((if (glow) maximumFontSize * 0.34f else 12f) * fontDensity).toInt().coerceAtLeast(4)
+    val padding = maxOf(
+        (if (glow) maximumFontSize * 0.34f else 12f) * fontDensity,
+        if (softBlur > 0f) maximumFontSize * fontDensity * softBlur * 2.4f else 0f,
+    ).toInt().coerceAtLeast(4)
     val contentWidth = (width - padding * 2).coerceAtLeast(1)
     val contentHeight = (height - padding * 2).coerceAtLeast(1)
     val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -266,6 +276,18 @@ internal fun buildLyricRaster(
             it.prepareToDraw()
         }
     } else null
+    // SOFTFOCUS's defocused under-layer: the same layout blurred through the same software canvas.
+    val soft = if (softBlur > 0f) {
+        Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888).also {
+            paint.maskFilter = BlurMaskFilter(paint.textSize * softBlur, BlurMaskFilter.Blur.NORMAL)
+            NativeCanvas(it).apply {
+                translate(padding.toFloat(), padding.toFloat())
+                measured.draw(this)
+            }
+            paint.maskFilter = null
+            it.prepareToDraw()
+        }
+    } else null
     val boundaries = BreakIterator.getCharacterInstance().apply { setText(text) }
     val glyphs = ArrayList<GlyphSlice>()
     var start = boundaries.first()
@@ -289,5 +311,5 @@ internal fun buildLyricRaster(
         start = end
         end = boundaries.next()
     }
-    return LyricRaster(bitmap, glyphs, paint.textSize, halo, blur)
+    return LyricRaster(bitmap, glyphs, paint.textSize, halo, blur, soft)
 }

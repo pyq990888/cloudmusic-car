@@ -462,7 +462,9 @@ internal fun LyricsList(
     // 只看它会把这一句漏掉，等下一句再猛追；是自己的跟随就照样接着滚
     val following = remember { intArrayOf(0) }
     LaunchedEffect(lines) { state.scrollToItem(0) }
-    LaunchedEffect(active, manualTick, lines) {
+    LaunchedEffect(active, manualTick, lines, visible) {
+        // 不在屏上的列表不必跟着滚：相邻页现在会提前组合，别让它在后台跑逐帧滚动。
+        if (!visible) return@LaunchedEffect
         val wait = 2500 - (System.currentTimeMillis() - manualAt)
         if (wait > 0) delay(wait)
         if (active >= 0 && (!state.isScrollInProgress || following[0] > 0)) {

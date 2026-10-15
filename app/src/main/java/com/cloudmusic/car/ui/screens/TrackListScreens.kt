@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.cloudmusic.car.ui.components.glass
 import com.cloudmusic.car.ui.LocalBottomInset
@@ -255,13 +258,18 @@ private fun TrackList(
             info.visibleItemsInfo.isNotEmpty() && info.totalItemsCount > info.visibleItemsInfo.size * 2
         }
     }
-    LaunchedEffect(listState.isScrollInProgress, dragging) {
-        if (listState.isScrollInProgress || dragging) {
-            railVisible = true
-        } else {
-            delay(2000)
-            railVisible = false
-        }
+    // 订阅滚动状态，而不是把它读进组合：拖动时每次跳转都会让 isScrollInProgress 翻一次，
+    // 读进组合会让整个 TrackList 跟着重组（连带重跑 LazyColumn 的 content）。
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress || dragging }
+            .collectLatest { active ->
+                if (active) {
+                    railVisible = true
+                } else {
+                    delay(2000)
+                    railVisible = false
+                }
+            }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -309,7 +317,6 @@ private fun BoxScope.ScrollRail(
     onDragging: (Boolean) -> Unit,
 ) {
     val c = K.colors
-    val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val thumbHeightPx = with(density) { THUMB_TOUCH_HEIGHT.toPx() }
     val topPadPx = with(density) { RAIL_TOP_PADDING.toPx() }
@@ -320,9 +327,26 @@ private fun BoxScope.ScrollRail(
     val railEndPx = with(density) { 11.dp.toPx() } + edgeInsetPx
     var heightPx by remember { mutableIntStateOf(0) }
     var dragging by remember { mutableStateOf(false) }
-    var dragIndex by remember { mutableIntStateOf(0) }
     var dragTopPx by remember { mutableFloatStateOf(0f) }
     val placedTop = remember { floatArrayOf(0f) }
+    // 跳转目标走 StateFlow：拖拽事件比帧还密，逐事件 scrollToItem 会触发成串的同步 remeasure，
+    // 几千首的歌单会被拖垮；StateFlow 只保留最新值，再按帧节流，每帧最多跳一次。
+    val dragTarget = remember { MutableStateFlow(-1) }
+    // 气泡序号再节流到 ~10Hz：每划过一首歌就换一次封面 = 一次网络请求 + 一次解码。
+    val bubbleTarget = remember { MutableStateFlow(0) }
+    var bubbleIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        dragTarget.collect {
+            if (it >= 0) listState.scrollToItem(it + 1)
+            delay(16)
+        }
+    }
+    LaunchedEffect(Unit) {
+        bubbleTarget.collect {
+            bubbleIndex = it
+            delay(100)
+        }
+    }
 
     // 轨道上沿：头部还露在屏幕上时贴着头部下沿，否则贴顶部留白
     fun railTop(): Float {
@@ -379,6 +403,7 @@ private fun BoxScope.ScrollRail(
                                 grabY = it.y
                                 dragTopPx = placedTop[0]
                                 dragging = true
+                                dragTarget.value = -1 // 复位，保证新一次拖动一定触发跳转
                                 onDragging(true)
                             },
                             onDragEnd = { dragging = false; onDragging(false) },
@@ -390,10 +415,8 @@ private fun BoxScope.ScrollRail(
                             val range = thumbRange(top)
                             dragTopPx = (placedTop[0] + change.position.y - grabY).coerceIn(top, top + range)
                             val index = (((dragTopPx - top) / range) * (tracks.size - 1)).roundToInt()
-                            if (index != dragIndex) {
-                                dragIndex = index
-                                scope.launch { listState.scrollToItem(index + 1) }
-                            }
+                            dragTarget.value = index
+                            bubbleTarget.value = index
                         }
                     },
                 contentAlignment = Alignment.CenterEnd,
@@ -407,7 +430,7 @@ private fun BoxScope.ScrollRail(
                 )
             }
             if (dragging) {
-                ScrollBubble({ dragIndex }, tracks, Modifier.align(Alignment.Center))
+                ScrollBubble({ bubbleIndex }, tracks, Modifier.align(Alignment.Center))
             }
         }
     }
@@ -416,7 +439,8 @@ private fun BoxScope.ScrollRail(
 @Composable
 private fun ScrollBubble(index: () -> Int, tracks: List<Track>, modifier: Modifier) {
     val c = K.colors
-    val track = tracks[index().coerceIn(0, tracks.lastIndex)]
+    val i = index().coerceIn(0, tracks.lastIndex)
+    val track = tracks[i]
     Row(
         modifier
             .width(460.dp)
@@ -424,10 +448,12 @@ private fun ScrollBubble(index: () -> Int, tracks: List<Track>, modifier: Modifi
             .padding(22.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Artwork(track.album.picUrl, 96.dp, corner = 14.dp, px = 200)
+        // 封面用和列表行一样的 px：封面 URL 带 {size} 占位符，不同尺寸是不同的缓存 key，
+        // 否则拖过一首没加载过的歌就得联网取图。
+        Artwork(track.album.picUrl, 96.dp, corner = 14.dp, px = 160)
         Spacer(Modifier.width(22.dp))
         Column(Modifier.weight(1f)) {
-            Text("第 ${index().coerceIn(0, tracks.lastIndex) + 1} 首", color = c.accent, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text("第 ${i + 1} 首", color = c.accent, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Text(track.name, color = c.label, fontSize = 26.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(track.artistNames, color = c.secondary, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

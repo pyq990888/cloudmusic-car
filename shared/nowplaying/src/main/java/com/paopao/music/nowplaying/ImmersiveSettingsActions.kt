@@ -114,7 +114,9 @@ internal fun ImmersiveSettingsActions(
                 onDismissRequest = dismiss,
                 modifier = Modifier.width(menuWidth),
             ) {
-                FoliaLyricMode.entries.forEach { value ->
+                FoliaLyricMode.entries.forEachIndexed { index, value ->
+                    // Single-line glyph effects, multi-row layouts, and the article mode read as three families.
+                    if (index == 4 || index == 6) SettingsMenuDivider()
                     val selected = settings.mode == value
                     DropdownMenuItem(
                         text = { SettingsMenuLabel(value.label, textSize, if (selected) accentColor else SettingsMenuText) },
@@ -133,7 +135,9 @@ internal fun ImmersiveSettingsActions(
                 expanded = menu == "background", onDismissRequest = dismiss,
                 modifier = Modifier.heightIn(max = 520.dp).width(menuWidth),
             ) {
-                ImmersiveBackdrop.entries.filter { it != ImmersiveBackdrop.CUSTOM || settings.imageName != null }.forEach { value ->
+                ImmersiveBackdrop.entries.filter { it != ImmersiveBackdrop.CUSTOM || settings.imageName != null }.forEachIndexed { index, value ->
+                    // Scenes and lyric effects, artwork sampling, and the import slot read as three families.
+                    if (index == 10 || index == 14) SettingsMenuDivider()
                     val selected = settings.backdrop == value
                     DropdownMenuItem(
                         text = { SettingsMenuLabel(value.label, textSize, if (selected) accentColor else SettingsMenuText) },
@@ -144,7 +148,7 @@ internal fun ImmersiveSettingsActions(
                         contentPadding = SettingsMenuItemPadding,
                     )
                 }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 12.dp))
+                SettingsMenuDivider()
                 DropdownMenuItem(
                     text = { SettingsMenuLabel("导入图片 / GIF / MP4", textSize) },
                     leadingIcon = { Icon(Icons.Rounded.FileUpload, null, tint = SettingsMenuText) },
@@ -235,6 +239,11 @@ private fun SettingsDropdownMenu(
         border = SettingsMenuBorder,
         content = content,
     )
+}
+
+@Composable
+private fun SettingsMenuDivider() {
+    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 12.dp))
 }
 
 @Composable

@@ -31,7 +31,8 @@ internal fun lyricSections(text: String, requestedCount: Int): List<LyricSection
 internal fun modeRowCount(mode: FoliaLyricMode, text: String): Int {
     val length = text.codePointCount(0, text.length)
     return when (mode) {
-        FoliaLyricMode.LUMINOUS, FoliaLyricMode.FUME -> 1
+        FoliaLyricMode.LUMINOUS, FoliaLyricMode.KINTSUGI, FoliaLyricMode.MIRROR,
+        FoliaLyricMode.SOFTFOCUS, FoliaLyricMode.FUME -> 1
         FoliaLyricMode.MINDSCAPE -> when { length > 48 -> 4; length > 20 -> 3; length > 5 -> 2; else -> 1 }
         FoliaLyricMode.PARTITA -> when { length > 42 -> 4; length > 18 -> 3; length > 5 -> 2; else -> 1 }
     }

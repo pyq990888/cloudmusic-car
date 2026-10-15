@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全新沉浸式视听特效设计方案 · Innovative Audio Experience</title>
+  <style>
+    :root {
+      --bg-dark: #05070a;
+      --panel-bg: rgba(14, 18, 26, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent: #64f4d2;
+      --accent-warm: #ffa657;
+      --accent-violet: #a855f7;
+      --accent-blue: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航控制条 */
+    header {
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(8, 11, 16, 0.88);
+      backdrop-filter: blur(24px);
+      z-index: 100;
+      position: sticky;
+      top: 0;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-tag {
+      background: linear-gradient(135deg, #64f4d2, #3b82f6);
+      color: #050d1a;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .header-ctrls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pill-group {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .pill-btn {
+      padding: 6px 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill-btn.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      font-weight: 500;
+    }
+
+    /* 主舞台区 */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* 播放器舞台视窗（模拟智能座舱中控屏幕） */
+    .viewport-frame {
+      position: relative;
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 32px 100px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      background: #020305;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .viewport-frame.mode-portrait {
+      max-width: 540px;
+      aspect-ratio: 9 / 16;
+    }
+
+    .viewport-frame.mode-full {
+      max-width: 100%;
+      aspect-ratio: auto;
+      height: calc(100vh - 110px);
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    /* 背景渲染层 */
+    .canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    canvas#stageCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 电影感光影与透镜蒙层 */
+    .cinema-vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(2, 4, 8, 0.75) 100%),
+                  linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 22%, transparent 75%, rgba(0,0,0,0.7) 100%);
+    }
+
+    /* 界面交互叠加层 */
+    .stage-ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 36px 54px;
+      pointer-events: auto;
+    }
+
+    /* 顶部元数据 */
+    .top-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 20;
+    }
+
+    .song-details {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .song-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+    }
+
+    .artist-name {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.65);
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+    }
+
+    .effect-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-item {
+      padding: 5px 12px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--accent);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-item::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* 歌词主舞台 */
+    .lyric-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin: 16px 0;
+      perspective: 1400px;
+      transform-style: preserve-3d;
+    }
+
+    /* 底部控制与进度 */
+    .bottom-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 20;
+    }
+
+    .verse-sub {
+      text-align: center;
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.45);
+      min-height: 24px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+    }
+
+    .ctrl-dock {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      background: rgba(10, 14, 20, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 12px 24px;
+      backdrop-filter: blur(24px);
+    }
+
+    .progress-bar {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .time-text {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.55);
+      min-width: 40px;
+    }
+
+    .track-line {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .track-active {
+      height: 100%;
+      width: 42%;
+      background: linear-gradient(90deg, var(--accent), #38bdf8);
+      border-radius: 3px;
+      position: relative;
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    .track-active::after {
+      content: '';
+      position: absolute;
+      right: -6px;
+      top: -4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .round-btn {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+    }
+
+    .round-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: scale(1.08);
+    }
+
+    .round-btn.primary-play {
+      width: 48px;
+      height: 48px;
+      background: #fff;
+      color: #030712;
+    }
+
+    .round-btn.primary-play:hover {
+      background: var(--accent);
+      box-shadow: 0 0 20px var(--accent);
+    }
+
+    .pulse-btn {
+      color: var(--accent);
+      border-color: rgba(100, 244, 210, 0.3);
+    }
+
+    /* -----------------------------------------------------------------
+       全新字体特效 (New Custom Typography Effects)
+       ----------------------------------------------------------------- */
+
+    /* 1. 潮汐涌动 (Tidal Waveform) */
+    .typo-tidal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .tidal-char {
+      display: inline-block;
+      font-size: 46px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.3);
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    .tidal-char.sung {
+      color: #fff;
+      text-shadow: 0 0 16px rgba(255, 255, 255, 0.8),
+                   0 0 35px var(--accent);
+      transform: translateY(-8px);
+    }
+
+    .tidal-char.active {
+      color: #ffffff;
+      transform: translateY(-18px) scale(1.22);
+      text-shadow: 0 0 12px #fff,
+                   0 0 28px var(--accent),
+                   0 0 55px var(--accent),
+                   0 0 90px #fff;
+      animation: waterFloat 0.5s infinite alternate ease-in-out;
+    }
+
+    @keyframes waterFloat {
+      0% { filter: brightness(1) drop-shadow(0 0 4px var(--accent)); }
+      100% { filter: brightness(1.4) drop-shadow(0 0 18px var(--accent)); }
+    }
+
+    /* 2. 黑胶刻痕 (Vinyl Groove) */
+    .typo-vinyl {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 24px 40px;
+    }
+
+    .vinyl-groove-line {
+      position: absolute;
+      top: 50%;
+      left: 5%;
+      width: 90%;
+      height: 2px;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.25) 0%, transparent 80%);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .vinyl-stylus-light {
+      position: absolute;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(to bottom, #ffea79, #fff, transparent);
+      box-shadow: 0 0 16px #ffea79, 0 0 32px #ffb300;
+      transition: left 0.15s ease-out;
+      pointer-events: none;
+    }
+
+    .vinyl-char {
+      display: inline-block;
+      font-size: 42px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.25);
+      position: relative;
+      transition: all 0.25s ease;
+      letter-spacing: 2px;
+    }
+
+    .vinyl-char.sung {
+      color: #ffe6a0;
+      text-shadow: 0 0 10px rgba(255, 220, 130, 0.5);
+    }
+
+    .vinyl-char.active {
+      color: #ffffff;
+      transform: scale(1.15) translateY(-4px);
+      text-shadow: 0 0 14px #ffffff, 0 0 30px #ffc107, 0 0 60px #ff9800;
+    }
+
+    /* 3. 磁带悬浮 (Magnetic Ribbon) */
+    .typo-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      perspective: 1000px;
+    }
+
+    .ribbon-word {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      font-size: 38px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.35);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-style: preserve-3d;
+    }
+
+    .ribbon-word.sung {
+      color: #f1f5f9;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateZ(20px) rotateY(-5deg);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .ribbon-word.active {
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(100, 244, 210, 0.25), rgba(56, 189, 248, 0.15));
+      border-color: var(--accent);
+      transform: translateZ(70px) scale(1.12) rotateY(-10deg);
+      box-shadow: 0 15px 45px rgba(100, 244, 210, 0.3);
+      text-shadow: 0 0 20px var(--accent);
+    }
+
+    /* 4. 粒子塌缩 (Nebula Collapse) */
+    .typo-nebula {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .nebula-char {
+      display: inline-block;
+      font-size: 46px;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.2);
+      letter-spacing: 2px;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nebula-char.sung {
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.7), 0 0 25px var(--accent-violet);
+    }
+
+    .nebula-char.active {
+      color: #ffffff;
+      transform: scale(1.24);
+      text-shadow: 0 0 10px #fff,
+                   0 0 26px var(--accent-violet),
+                   0 0 60px var(--accent-violet),
+                   0 0 100px #38bdf8;
+      animation: stardustShock 0.35s ease-out;
+    }
+
+    @keyframes stardustShock {
+      0% { transform: scale(0.6); filter: blur(6px); opacity: 0.2; }
+      70% { transform: scale(1.35); filter: blur(0px); opacity: 1; }
+      100% { transform: scale(1.24); }
+    }
+
+    /* 控制面板区域 */
+    .dashboard-grid {
+      width: 100%;
+      max-width: 1200px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .panel-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .box-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .box-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .box-caption {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .item-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+
+    .item-card.selected {
+      background: linear-gradient(135deg, rgba(100, 244, 210, 0.15), rgba(56, 189, 248, 0.12));
+      border-color: var(--accent);
+      box-shadow: 0 4px 20px rgba(100, 244, 210, 0.18);
+    }
+
+    .item-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .item-card.selected .item-name {
+      color: var(--accent);
+    }
+
+    .item-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .tuning-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+
+    .tuning-label {
+      color: var(--text-muted);
+    }
+
+    .range-bar {
+      width: 150px;
+      accent-color: var(--accent);
+    }
+
+    /* 概念深度白皮书卡片 */
+    .whitepaper-card {
+      width: 100%;
+      max-width: 1200px;
+      background: rgba(12, 16, 24, 0.8);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 28px 32px;
+      margin-bottom: 40px;
+    }
+
+    .wp-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+    }
+
+    .concept-cols {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .concept-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .concept-head {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .concept-p {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-grid, .concept-cols {
+        grid-template-columns: 1fr;
+      }
+      .items-grid { grid-template-columns: 1fr; }
+      .tidal-char, .vinyl-char, .nebula-char { font-size: 32px; }
+      .ribbon-word { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <header>
+    <div class="brand-wrap">
+      <span class="brand-tag">Concept Studio</span>
+      <h1 class="brand-title">全新沉浸式视听特效设计方案 · 突破性视觉原型</h1>
+    </div>
+
+    <div class="header-ctrls">
+      <div class="pill-group">
+        <button class="pill-btn active" id="btnLandscape" onclick="setScreenMode('landscape')">车机横屏 16:9</button>
+        <button class="pill-btn" id="btnPortrait" onclick="setScreenMode('portrait')">车机竖屏 9:16</button>
+        <button class="pill-btn" id="btnFull" onclick="setScreenMode('full')">全屏无界</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 核心视听舞台 -->
+  <main>
+    <div class="viewport-frame" id="viewportFrame">
+      <!-- Canvas / WebGL 渲染背景 -->
+      <div class="canvas-container">
+        <canvas id="stageCanvas"></canvas>
+      </div>
+
+      <!-- 电影感微暗角 -->
+      <div class="cinema-vignette"></div>
+
+      <!-- 前端交互与歌词界面 -->
+      <div class="stage-ui">
+        <div class="top-meta">
+          <div class="song-details">
+            <div class="song-name" id="trackName">星河长明 (Galactic Lullaby)</div>
+            <div class="artist-name" id="artistName">原声交响 · 沉浸空间音频</div>
+          </div>
+
+          <div class="effect-badges">
+            <div class="badge-item" id="badgeFont">潮汐涌动</div>
+            <div class="badge-item" id="badgeBackdrop">极光纱幕</div>
+          </div>
+        </div>
+
+        <!-- 歌词中心舞台 -->
+        <div class="lyric-center" id="lyricStage">
+          <!-- 动态渲染 -->
+        </div>
+
+        <!-- 底部控制与进度条 -->
+        <div class="bottom-meta">
+          <div class="verse-sub" id="verseSub">在这片寂静长夜 点燃永不熄灭的光</div>
+
+          <div class="ctrl-dock">
+            <div class="progress-bar">
+              <span class="time-text" id="curTime">01:34</span>
+              <div class="track-line" id="trackLine" onclick="seekSong(event)">
+                <div class="track-active" id="trackActive"></div>
+              </div>
+              <span class="time-text" id="totalTime">03:45</span>
+            </div>
+
+            <div class="action-group">
+              <button class="round-btn" onclick="prevSentence()" title="上一句">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+              </button>
+              <button class="round-btn primary-play" id="playBtn" onclick="togglePlayState()" title="播放/暂停">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="playSvg"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              </button>
+              <button class="round-btn" onclick="nextSentence()" title="下一句">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
+              <button class="round-btn pulse-btn" onclick="triggerBeatImpulse()" title="触发重音鼓点冲击波">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创意参数调控板 -->
+    <div class="dashboard-grid">
+      <!-- 创意字体特效卡片 -->
+      <div class="panel-box">
+        <div class="box-title-row">
+          <div class="box-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+            全新创意字体特效 (4 款独立设计)
+          </div>
+          <span class="box-caption">不同维度的排版动效</span>
+        </div>
+
+        <div class="items-grid">
+          <div class="item-card selected" onclick="switchFontEffect('TIDAL')" id="card-TIDAL">
+            <span class="item-name">🌊 潮汐涌动</span>
+            <span class="item-desc">声学流体波浪起伏，发光字水滴涟漪上浮</span>
+          </div>
+          <div class="item-card" onclick="switchFontEffect('VINYL')" id="card-VINYL">
+            <span class="item-name">💿 黑胶刻痕</span>
+            <span class="item-desc">同心音轨光束扫过，唱针激光点燃刻痕</span>
+          </div>
+          <div class="item-card" onclick="switchFontEffect('RIBBON')" id="card-RIBBON">
+            <span class="item-name">🎗️ 磁带悬浮</span>
+            <span class="item-desc">3D 丝带空间扭转，词组视差立体推近</span>
+          </div>
+          <div class="item-card" onclick="switchFontEffect('NEBULA')" id="card-NEBULA">
+            <span class="item-name">🌌 粒子塌缩</span>
+            <span class="item-desc">星尘引力坍缩成字，重音冲击波碎裂消散</span>
+          </div>
+        </div>
+
+        <div class="tuning-row">
+          <span class="tuning-label">逐字扫光节奏速度</span>
+          <input type="range" class="range-bar" min="0.5" max="2.5" step="0.1" value="1.0" oninput="setWordSpeed(this.value)">
+        </div>
+      </div>
+
+      <!-- 全新背景特效卡片 -->
+      <div class="panel-box">
+        <div class="box-title-row">
+          <div class="box-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
+            全新创意背景特效 (4 款高奢氛围)
+          </div>
+          <span class="box-caption">超越旧版着色器</span>
+        </div>
+
+        <div class="items-grid">
+          <div class="item-card selected" onclick="switchBackdrop('VEIL')" id="card-VEIL">
+            <span class="item-name">🎐 极光纱幕 (替代流体)</span>
+            <span class="item-desc">动态曲率流体折射，轻纱曼妙呼吸涌浪</span>
+          </div>
+          <div class="item-card" onclick="switchBackdrop('STRING')" id="card-STRING">
+            <span class="item-name">🕸️ 超弦引力 (替代粒子)</span>
+            <span class="item-desc">声波引力能量弦，节拍拨动激发谐振微波</span>
+          </div>
+          <div class="item-card" onclick="switchBackdrop('HORIZON')" id="card-HORIZON">
+            <span class="item-name">🕳️ 事件视界 (替代月蚀)</span>
+            <span class="item-desc">深空黑洞引力透镜双弧环，吸积盘等离子光流</span>
+          </div>
+          <div class="item-card" onclick="switchBackdrop('BIOME')" id="card-BIOME">
+            <span class="item-name">🌧️ 浮游霓光 (替代赛博)</span>
+            <span class="item-desc">银翼雾雨柔光散焦光斑，湿润镜面全息声学浮标</span>
+          </div>
+        </div>
+
+        <div class="tuning-row">
+          <span class="tuning-label">氛围光晕主色系</span>
+          <select id="paletteSelect" onchange="changeColorTone(this.value)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:4px 8px;font-size:12px;">
+            <option value="emerald">碧波水玉 (Emerald Cyan)</option>
+            <option value="amber">曜金暖阳 (Amber Gold)</option>
+            <option value="amethyst">幻紫星云 (Deep Nebula)</option>
+            <option value="arctic">极光冰蓝 (Arctic Ice)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 概念设计白皮书 -->
+    <div class="whitepaper-card">
+      <div class="wp-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        全新设计理念解析 · 为什么这四套完全不同的特效能带来质的飞跃？
+      </div>
+
+      <div class="concept-cols">
+        <div class="concept-box">
+          <div class="concept-head">🎐 极光纱幕 vs 原版流体</div>
+          <div class="concept-p">
+            <strong>原版问题：</strong>缩小到 24px 后做双层 FBM 域扭曲，容易在车机暗色下搅成暗沉色块。<br>
+            <strong>新设计：</strong>放弃像素混合，采用物理薄纱折叠算法（Curvature Veil）。光线随曲率产生折射高光与深邃明暗阴影，轻柔如丝绸曼舞，绝不脏色。
+          </div>
+        </div>
+
+        <div class="concept-box">
+          <div class="concept-head">🕸️ 超弦引力 vs 原版粒子</div>
+          <div class="concept-p">
+            <strong>原版问题：</strong>仅 32 个固定轨道循环旋转的点，机械且呆板。<br>
+            <strong>新设计：</strong>基于超弦物理学与声波共振。屏幕横贯柔韧引力光弦，鼓点踩下时弦被拨动震颤，激发出光子谐振涟漪，极具未来声学灵动感。
+          </div>
+        </div>
+
+        <div class="concept-box">
+          <div class="concept-head">🕳️ 事件视界 vs 原版月蚀</div>
+          <div class="concept-p">
+            <strong>原版问题：</strong>生硬的黑色贴图圆盘加单线椭圆，视觉平淡。<br>
+            <strong>新设计：</strong>电影级《星际穿越》黑洞视界。极度引力弯曲吸积盘光流形成上下对称的双环爱因斯坦光弧，等离子耀斑环绕，深邃震撼。
+          </div>
+        </div>
+
+        <div class="concept-box">
+          <div class="concept-head">🌧️ 浮游霓光 vs 原版赛博</div>
+          <div class="concept-p">
+            <strong>原版问题：</strong>老式 80 年代蒸汽波高饱和视网格，刺眼且过时。<br>
+            <strong>新设计：</strong>现代座舱轻奢未来感。细腻的雨夜散焦光斑（Bokeh Orbs）漫游，地面呈微弱湿润反光，优雅的全息浮标随音律呼吸，高级耐看。
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 视觉引擎系统实现 -->
+  <script>
+    // -------------------------------------------------------------
+    // 数据模型：高精度逐字歌词
+    // -------------------------------------------------------------
+    const songData = [
+      {
+        text: "在这片寂静长夜 点燃永不熄灭的光",
+        sub: "In this silent night, ignite the eternal light",
+        words: [
+          { text: "在", dur: 450 }, { text: "这", dur: 450 }, { text: "片", dur: 500 }, { text: " ", dur: 100 },
+          { text: "寂", dur: 550 }, { text: "静", dur: 600 }, { text: "长", dur: 700 }, { text: "夜", dur: 900 }, { text: " ", dur: 150 },
+          { text: "点", dur: 550 }, { text: "燃", dur: 650 }, { text: "永", dur: 500 }, { text: "不", dur: 450 }, { text: "熄", dur: 650 },
+          { text: "灭", dur: 850 }, { text: "的", dur: 400 }, { text: "光", dur: 1600 }
+        ],
+        ribbonWords: ["在这片", "寂静长夜", "点燃永不", "熄灭的光"]
+      },
+      {
+        text: "穿过无垠的星海 触摸每一个回响的梦",
+        sub: "Through the boundless starlight, touch every echoing dream",
+        words: [
+          { text: "穿", dur: 500 }, { text: "过", dur: 450 }, { text: "无", dur: 600 }, { text: "垠", dur: 650 }, { text: "的", dur: 400 },
+          { text: "星", dur: 800 }, { text: "海", dur: 950 }, { text: " ", dur: 150 },
+          { text: "触", dur: 550 }, { text: "摸", dur: 600 }, { text: "每", dur: 450 }, { text: "一", dur: 450 }, { text: "个", dur: 500 },
+          { text: "回", dur: 700 }, { text: "响", dur: 850 }, { text: "的", dur: 450 }, { text: "梦", dur: 1800 }
+        ],
+        ribbonWords: ["穿过无垠", "的星海", "触摸每一个", "回响的梦"]
+      },
+      {
+        text: "当晨曦悄然降临 所有期盼皆如所愿",
+        sub: "When dawn arrives quietly, all hopes come as wished",
+        words: [
+          { text: "当", dur: 450 }, { text: "晨", dur: 600 }, { text: "曦", dur: 800 }, { text: " ", dur: 100 },
+          { text: "悄", dur: 550 }, { text: "然", dur: 600 }, { text: "降", dur: 700 }, { text: "临", dur: 900 }, { text: " ", dur: 150 },
+          { text: "所", dur: 500 }, { text: "有", dur: 550 }, { text: "期", dur: 650 }, { text: "盼", dur: 800 }, { text: " ", dur: 100 },
+          { text: "皆", dur: 600 }, { text: "如", dur: 700 }, { text: "所", dur: 850 }, { text: "愿", dur: 2000 }
+        ],
+        ribbonWords: ["当晨曦", "悄然降临", "所有期盼", "皆如所愿"]
+      }
+    ];
+
+    // 全局状态管理
+    const state = {
+      fontEffect: 'TIDAL',      // 'TIDAL' | 'VINYL' | 'RIBBON' | 'NEBULA'
+      backdropEffect: 'VEIL',   // 'VEIL' | 'STRING' | 'HORIZON' | 'BIOME'
+      colorTone: 'emerald',
+      sentenceIdx: 0,
+      charCursor: 0,
+      isPlaying: true,
+      paceSpeed: 1.0,
+      beatWave: 0.0,
+      timerSec: 94,
+      totalSec: 225
+    };
+
+    // 调色盘
+    const palettes = {
+      emerald: { accent: '#64f4d2', rgb: [100, 244, 210], sub: [56, 189, 248] },
+      amber:   { accent: '#ffa657', rgb: [255, 166, 87], sub: [255, 107, 107] },
+      amethyst:{ accent: '#c084fc', rgb: [192, 132, 252], sub: [244, 114, 182] },
+      arctic:  { accent: '#38bdf8', rgb: [56, 189, 248], sub: [129, 140, 248] }
+    };
+
+    // -------------------------------------------------------------
+    // 字体排版与动效渲染
+    // -------------------------------------------------------------
+    const lyricStage = document.getElementById('lyricStage');
+    const verseSub = document.getElementById('verseSub');
+
+    function renderActiveLyrics() {
+      const cur = songData[state.sentenceIdx];
+      verseSub.textContent = cur.sub;
+      document.documentElement.style.setProperty('--accent', palettes[state.colorTone].accent);
+
+      if (state.fontEffect === 'TIDAL') {
+        renderTidal(cur);
+      } else if (state.fontEffect === 'VINYL') {
+        renderVinyl(cur);
+      } else if (state.fontEffect === 'RIBBON') {
+        renderRibbon(cur);
+      } else if (state.fontEffect === 'NEBULA') {
+        renderNebula(cur);
+      }
+    }
+
+    // 1. 潮汐涌动 (Tidal Waveform)
+    function renderTidal(cur) {
+      let html = '<div class="typo-tidal">';
+      let totalIndex = 0;
+      cur.words.forEach(w => {
+        for (let ch of w.text) {
+          if (ch === ' ') {
+            html += '<span style="display:inline-block;width:16px;"></span>';
+            totalIndex++;
+            continue;
+          }
+          const isAct = Math.floor(state.charCursor) === totalIndex;
+          const isSung = state.charCursor > totalIndex;
+          // 添加物理微波相位
+          const waveOffsetY = Math.sin(Date.now() * 0.003 + totalIndex * 0.45) * 5;
+          const cls = isAct ? 'tidal-char active' : (isSung ? 'tidal-char sung' : 'tidal-char');
+          html += `<span class="${cls}" style="margin-top:${waveOffsetY}px;">${ch}</span>`;
+          totalIndex++;
+        }
+      });
+      html += '</div>';
+      lyricStage.innerHTML = html;
+    }
+
+    // 2. 黑胶刻痕 (Vinyl Groove)
+    function renderVinyl(cur) {
+      let html = '<div class="typo-vinyl">';
+      html += '<div class="vinyl-groove-line"></div>';
+
+      const totalChars = cur.words.reduce((acc, w) => acc + w.text.length, 0);
+      const stylusPct = Math.min(95, Math.max(5, (state.charCursor / totalChars) * 90 + 5));
+      html += `<div class="vinyl-stylus-light" style="left:${stylusPct}%;"></div>`;
+
+      let totalIndex = 0;
+      cur.words.forEach(w => {
+        for (let ch of w.text) {
+          if (ch === ' ') {
+            html += '<span style="display:inline-block;width:14px;"></span>';
+            totalIndex++;
+            continue;
+          }
+          const isAct = Math.floor(state.charCursor) === totalIndex;
+          const isSung = state.charCursor > totalIndex;
+          const cls = isAct ? 'vinyl-char active' : (isSung ? 'vinyl-char sung' : 'vinyl-char');
+          html += `<span class="${cls}">${ch}</span>`;
+          totalIndex++;
+        }
+      });
+      html += '</div>';
+      lyricStage.innerHTML = html;
+    }
+
+    // 3. 磁带悬浮 (Magnetic Ribbon)
+    function renderRibbon(cur) {
+      const words = cur.ribbonWords;
+      const totalWords = words.length;
+      const wordProgress = (state.charCursor / 16) * totalWords;
+
+      let html = '<div class="typo-ribbon">';
+      words.forEach((w, idx) => {
+        const isAct = Math.floor(wordProgress) === idx;
+        const isSung = wordProgress > idx;
+        const cls = isAct ? 'ribbon-word active' : (isSung ? 'ribbon-word sung' : 'ribbon-word');
+        html += `<div class="${cls}"><span>${w}</span></div>`;
+      });
+      html += '</div>';
+      lyricStage.innerHTML = html;
+    }
+
+    // 4. 粒子塌缩 (Nebula Collapse)
+    function renderNebula(cur) {
+      let html = '<div class="typo-nebula">';
+      let totalIndex = 0;
+      cur.words.forEach(w => {
+        for (let ch of w.text) {
+          if (ch === ' ') {
+            html += '<span style="display:inline-block;width:16px;"></span>';
+            totalIndex++;
+            continue;
+          }
+          const isAct = Math.floor(state.charCursor) === totalIndex;
+          const isSung = state.charCursor > totalIndex;
+          const cls = isAct ? 'nebula-char active' : (isSung ? 'nebula-char sung' : 'nebula-char');
+          html += `<span class="${cls}">${ch}</span>`;
+          totalIndex++;
+        }
+      });
+      html += '</div>';
+      lyricStage.innerHTML = html;
+    }
+
+    // -------------------------------------------------------------
+    // 全新背景引擎系统 (Custom Innovative Shaders)
+    // -------------------------------------------------------------
+    const canvas = document.getElementById('stageCanvas');
+    const ctx = canvas.getContext('2d');
+    let cw = 0, ch = 0;
+    let tickTime = 0;
+
+    // 散焦光斑存储 (for Cyberpunk Biome)
+    const orbs = [];
+    for (let i = 0; i < 45; i++) {
+      orbs.push({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.random() * 40 + 15,
+        speed: (Math.random() * 0.0008 + 0.0003),
+        alpha: Math.random() * 0.35 + 0.1
+      });
+    }
+
+    function syncCanvasDim() {
+      const b = canvas.getBoundingClientRect();
+      cw = canvas.width = b.width * window.devicePixelRatio;
+      ch = canvas.height = b.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', syncCanvasDim);
+    setTimeout(syncCanvasDim, 50);
+
+    function mainAnimationLoop() {
+      if (cw === 0 || ch === 0) {
+        requestAnimationFrame(mainAnimationLoop);
+        return;
+      }
+
+      tickTime += 0.018;
+      if (state.beatWave > 0) {
+        state.beatWave = Math.max(0, state.beatWave - 0.025);
+      }
+
+      const p = palettes[state.colorTone];
+
+      if (state.backdropEffect === 'VEIL') {
+        renderVeilBackdrop(p);
+      } else if (state.backdropEffect === 'STRING') {
+        renderStringBackdrop(p);
+      } else if (state.backdropEffect === 'HORIZON') {
+        renderHorizonBackdrop(p);
+      } else if (state.backdropEffect === 'BIOME') {
+        renderBiomeBackdrop(p);
+      }
+
+      requestAnimationFrame(mainAnimationLoop);
+    }
+    requestAnimationFrame(mainAnimationLoop);
+
+    // 1. 🎐 极光纱幕 (Ethereal Veil) - 动态曲率薄纱
+    function renderVeilBackdrop(p) {
+      ctx.fillStyle = '#03060a';
+      ctx.fillRect(0, 0, cw, ch);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      const ribbons = 5;
+      for (let r = 0; r < ribbons; r++) {
+        ctx.beginPath();
+        const baseH = ch * (0.35 + r * 0.1);
+        ctx.moveTo(0, baseH);
+
+        for (let x = 0; x <= cw; x += 40) {
+          const nx = x / cw;
+          const wave1 = Math.sin(nx * 4.2 + tickTime * 0.6 + r * 1.2) * 60;
+          const wave2 = Math.cos(nx * 8.5 - tickTime * 0.4 + r) * 35;
+          const beatKick = state.beatWave * 45 * Math.sin(nx * Math.PI);
+          const y = baseH + wave1 + wave2 + beatKick;
+          ctx.lineTo(x, y);
+        }
+
+        ctx.lineTo(cw, ch);
+        ctx.lineTo(0, ch);
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, baseH - 50, 0, ch);
+        const col = r % 2 === 0 ? p.rgb : p.sub;
+        const alpha = (0.22 - r * 0.03 + state.beatWave * 0.18);
+        grad.addColorStop(0, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${alpha})`);
+        grad.addColorStop(0.4, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${alpha * 0.4})`);
+        grad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // 柔光微晕
+      const bloom = ctx.createRadialGradient(cw * 0.5, ch * 0.45, 0, cw * 0.5, ch * 0.45, cw * 0.5);
+      bloom.addColorStop(0, `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${0.12 + state.beatWave * 0.2})`);
+      bloom.addColorStop(1, 'transparent');
+      ctx.fillStyle = bloom;
+      ctx.fillRect(0, 0, cw, ch);
+
+      ctx.restore();
+    }
+
+    // 2. 🕸️ 超弦引力 (Superstring Nexus) - 柔韧声波引力弦
+    function renderStringBackdrop(p) {
+      ctx.fillStyle = '#04070d';
+      ctx.fillRect(0, 0, cw, ch);
+
+      ctx.save();
+      const stringCount = 18;
+      const spacing = ch / (stringCount + 1);
+
+      for (let i = 0; i < stringCount; i++) {
+        const defaultY = spacing * (i + 1);
+        ctx.beginPath();
+        ctx.moveTo(0, defaultY);
+
+        for (let x = 0; x <= cw; x += 30) {
+          const nx = x / cw;
+          // 驻波物理振动方程
+          const harmonic = (i % 3 + 1);
+          const wave = Math.sin(nx * Math.PI * harmonic) * Math.sin(tickTime * 2.5 + i * 0.5) * (18 + state.beatWave * 50);
+          ctx.lineTo(x, defaultY + wave);
+        }
+
+        const col = i % 2 === 0 ? p.rgb : p.sub;
+        ctx.strokeStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${0.28 + state.beatWave * 0.45})`;
+        ctx.lineWidth = (i % 4 === 0) ? 2.5 : 1.2;
+        ctx.shadowColor = `rgb(${col.join(',')})`;
+        ctx.shadowBlur = (i % 4 === 0) ? (14 + state.beatWave * 16) : 0;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    // 3. 🕳️ 事件视界 (Event Horizon) - 黑洞与引力透镜
+    function renderHorizonBackdrop(p) {
+      ctx.fillStyle = '#020306';
+      ctx.fillRect(0, 0, cw, ch);
+
+      const cx = cw * 0.68;
+      const cy = ch * 0.45;
+      const holeR = Math.min(cw, ch) * 0.2;
+
+      ctx.save();
+
+      // 引力透镜弯曲背景光 (Upper & Lower Accretion Arcs)
+      const ringRx = holeR * 2.8;
+      const ringRy = holeR * 0.5;
+
+      // 顶部弯曲吸积弧 (受引力透镜弯曲到黑洞上方)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-0.35);
+
+      const lensGrad = ctx.createRadialGradient(0, -holeR * 0.8, holeR * 0.4, 0, -holeR * 0.8, ringRx);
+      lensGrad.addColorStop(0, `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${0.85 + state.beatWave * 0.3})`);
+      lensGrad.addColorStop(0.35, `rgba(${p.sub[0]}, ${p.sub[1]}, ${p.sub[2]}, 0.4)`);
+      lensGrad.addColorStop(1, 'transparent');
+
+      ctx.fillStyle = lensGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -holeR * 0.4, ringRx * 0.9, ringRy * 1.4, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      // 真实的等离子吸积环 (Accretion Disk)
+      ctx.beginPath();
+      ctx.ellipse(0, 0, ringRx, ringRy, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 + state.beatWave * 0.1})`;
+      ctx.lineWidth = 10;
+      ctx.shadowColor = `rgb(${p.rgb.join(',')})`;
+      ctx.shadowBlur = 35 + state.beatWave * 30;
+      ctx.stroke();
+
+      ctx.restore();
+
+      // 纯黑绝对视界遮罩 (Event Horizon)
+      ctx.beginPath();
+      ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
+      ctx.fillStyle = '#010203';
+      ctx.fill();
+
+      // 光子球边缘极细微纯白高光线 (Photon Sphere)
+      ctx.beginPath();
+      ctx.arc(cx, cy, holeR + 1.5, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${0.75 + state.beatWave * 0.25})`;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 15;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 4. 🌧️ 浮游霓光 (Cyberpunk Biome) - 银翼散焦光斑与全息镜面
+    function renderBiomeBackdrop(p) {
+      ctx.fillStyle = '#05070d';
+      ctx.fillRect(0, 0, cw, ch);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      // 散焦光斑 (Bokeh Orbs) 浮游上升
+      for (let o of orbs) {
+        o.y -= o.speed;
+        if (o.y < -0.1) o.y = 1.1;
+
+        const ox = o.x * cw;
+        const oy = o.y * ch;
+        const rad = o.r * (1 + state.beatWave * 0.5);
+
+        const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, rad);
+        const col = p.rgb;
+        g.addColorStop(0, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${o.alpha + state.beatWave * 0.2})`);
+        g.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(ox, oy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 地面湿润镜面反光层
+      const groundH = ch * 0.35;
+      const groundY = ch - groundH;
+      const wetGrad = ctx.createLinearGradient(0, groundY, 0, ch);
+      wetGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      wetGrad.addColorStop(0.3, `rgba(${p.sub[0]}, ${p.sub[1]}, ${p.sub[2]}, 0.08)`);
+      wetGrad.addColorStop(1, `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, 0.18)`);
+
+      ctx.fillStyle = wetGrad;
+      ctx.fillRect(0, groundY, cw, groundH);
+
+      // 全息音频浮标 (Holographic Beacon)
+      const bx = cw * 0.5;
+      const by = ch * 0.75;
+      const bRad = (60 + state.beatWave * 80);
+      ctx.beginPath();
+      ctx.ellipse(bx, by, bRad * 2.2, bRad * 0.45, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${0.65 + state.beatWave * 0.35})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = `rgb(${p.rgb.join(',')})`;
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // 打点时间轴推进与自动歌词播放
+    // -------------------------------------------------------------
+    let previousStamp = performance.now();
+    function stepPlayback(now) {
+      const delta = (now - previousStamp) / 1000;
+      previousStamp = now;
+
+      if (state.isPlaying) {
+        state.charCursor += delta * 3.4 * state.paceSpeed;
+        const curLine = songData[state.sentenceIdx];
+        const len = curLine.words.reduce((acc, w) => acc + w.text.length, 0);
+
+        if (state.charCursor >= len + 1.2) {
+          nextSentence();
+        } else {
+          renderActiveLyrics();
+        }
+
+        state.timerSec += delta * state.paceSpeed;
+        if (state.timerSec > state.totalSec) state.timerSec = 0;
+        updateTimeDisplay();
+      }
+
+      requestAnimationFrame(stepPlayback);
+    }
+    requestAnimationFrame(stepPlayback);
+
+    function updateTimeDisplay() {
+      const m = Math.floor(state.timerSec / 60);
+      const s = Math.floor(state.timerSec % 60);
+      document.getElementById('curTime').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      const pct = (state.timerSec / state.totalSec) * 100;
+      document.getElementById('trackActive').style.width = pct + '%';
+    }
+
+    // -------------------------------------------------------------
+    // 控制台事件处理
+    // -------------------------------------------------------------
+    function switchFontEffect(eff) {
+      state.fontEffect = eff;
+      document.querySelectorAll('.item-card[id^="card-"]').forEach(el => {
+        if (['card-TIDAL','card-VINYL','card-RIBBON','card-NEBULA'].includes(el.id)) el.classList.remove('selected');
+      });
+      document.getElementById('card-' + eff).classList.add('selected');
+      const names = { TIDAL: '潮汐涌动', VINYL: '黑胶刻痕', RIBBON: '磁带悬浮', NEBULA: '粒子塌缩' };
+      document.getElementById('badgeFont').textContent = names[eff];
+      renderActiveLyrics();
+    }
+
+    function switchBackdrop(eff) {
+      state.backdropEffect = eff;
+      document.querySelectorAll('.item-card[id^="card-"]').forEach(el => {
+        if (['card-VEIL','card-STRING','card-HORIZON','card-BIOME'].includes(el.id)) el.classList.remove('selected');
+      });
+      document.getElementById('card-' + eff).classList.add('selected');
+      const names = { VEIL: '极光纱幕', STRING: '超弦引力', HORIZON: '事件视界', BIOME: '浮游霓光' };
+      document.getElementById('badgeBackdrop').textContent = names[eff];
+    }
+
+    function changeColorTone(tone) {
+      state.colorTone = tone;
+      renderActiveLyrics();
+    }
+
+    function setScreenMode(mode) {
+      const frame = document.getElementById('viewportFrame');
+      document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+
+      frame.classList.remove('mode-portrait', 'mode-full');
+      if (mode === 'landscape') {
+        document.getElementById('btnLandscape').classList.add('active');
+      } else if (mode === 'portrait') {
+        document.getElementById('btnPortrait').classList.add('active');
+        frame.classList.add('mode-portrait');
+      } else if (mode === 'full') {
+        document.getElementById('btnFull').classList.add('active');
+        frame.classList.add('mode-full');
+      }
+      setTimeout(syncCanvasDim, 300);
+    }
+
+    function togglePlayState() {
+      state.isPlaying = !state.isPlaying;
+      const svg = document.getElementById('playSvg');
+      if (state.isPlaying) {
+        svg.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+      } else {
+        svg.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      }
+    }
+
+    function nextSentence() {
+      state.sentenceIdx = (state.sentenceIdx + 1) % songData.length;
+      state.charCursor = 0;
+      triggerBeatImpulse();
+      renderActiveLyrics();
+    }
+
+    function prevSentence() {
+      state.sentenceIdx = (state.sentenceIdx - 1 + songData.length) % songData.length;
+      state.charCursor = 0;
+      triggerBeatImpulse();
+      renderActiveLyrics();
+    }
+
+    function triggerBeatImpulse() {
+      state.beatWave = 1.0;
+    }
+
+    function setWordSpeed(v) {
+      state.paceSpeed = parseFloat(v);
+    }
+
+    function seekSong(e) {
+      const r = document.getElementById('trackLine').getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      state.timerSec = pct * state.totalSec;
+      state.charCursor = 0;
+      updateTimeDisplay();
+      renderActiveLyrics();
+    }
+  </script>
+</body>
+</html>
