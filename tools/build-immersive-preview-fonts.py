@@ -2,8 +2,12 @@
 inline them as base64. Re-runnable: it restores placeholders first, then
 re-injects fresh subsets.
 
+The display font this preview page renders with is not bundled with the app, so
+it is kept outside the repository and passed in as an argument. The app's own
+lyric font is read from shared/nowplaying/src/main/resources.
+
 Usage:
-    python tools/build-immersive-preview-fonts.py
+    python tools/build-immersive-preview-fonts.py <preview-font.ttf>
 """
 
 import base64
@@ -16,10 +20,7 @@ from fontTools import subset
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML = ROOT / "docs" / "immersive-effects-preview-v2.html"
-FONT_FILES = [
-    ROOT / "shared/nowplaying/src/main/resources/immersive/fonts/ZenSerifSC-Bold.ttf",
-    ROOT / "shared/nowplaying/src/main/resources/immersive/fonts/SweiSpringSugarSC.ttf",
-]
+BUNDLED_FONT = ROOT / "shared/nowplaying/src/main/resources/immersive/fonts/SweiSpringSugarSC.ttf"
 PLACEHOLDERS = ["__FONT_ZEN_B64__", "__FONT_SWEI_B64__"]
 
 # Matches an already-injected data URI, so the script can be re-run.
@@ -43,6 +44,13 @@ def subset_bytes(path: Path, text: str) -> bytes:
 
 
 def main() -> None:
+    if len(sys.argv) != 2:
+        sys.exit(f"usage: {Path(sys.argv[0]).name} <preview-font.ttf>")
+    preview_font = Path(sys.argv[1])
+    if not preview_font.is_file():
+        sys.exit(f"no such font: {preview_font}")
+    font_files = [preview_font, BUNDLED_FONT]
+
     html = HTML.read_text(encoding="utf-8")
 
     matches = list(INJECTED.finditer(html))
@@ -57,7 +65,7 @@ def main() -> None:
     text = "".join(sorted(chars))
     print(f"subsetting to {len(chars)} characters")
 
-    for placeholder, path in zip(PLACEHOLDERS, FONT_FILES):
+    for placeholder, path in zip(PLACEHOLDERS, font_files):
         data = subset_bytes(path, text)
         b64 = base64.b64encode(data).decode("ascii")
         html = html.replace(placeholder, b64)
