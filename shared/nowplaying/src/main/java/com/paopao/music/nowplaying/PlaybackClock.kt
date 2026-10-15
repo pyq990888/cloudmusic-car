@@ -14,8 +14,9 @@ import kotlin.math.abs
  * 播放进度时钟。
  *
  * 平时每 250ms 读一次播放器（进度条 1px 级别的跳动肉眼看不出）；只有逐字歌词正在屏幕上
- * 填色时才切到逐帧插值。[position] 只应在绘制/布局 lambda 或 derivedStateOf 里读，
- * 避免每次跳动都触发重组。
+ * 填色时才切到插值，且每 [KARAOKE_FRAME_MS] 才推进一次：插件画在车机桌面的窗口里，
+ * 逐帧推进会让整个桌面每秒重画几十次（8155 上 CPU 到 130%）。[position] 只应在绘制/布局
+ * lambda 或 derivedStateOf 里读，避免每次跳动都触发重组。
  */
 @Stable
 class PlaybackClock internal constructor() {
@@ -57,13 +58,23 @@ fun rememberPlaybackClock(source: NowPlayingSource, active: Boolean = true): Pla
                     val interpolated = anchorPos + (now - anchorAt)
                     clock.positionState.longValue = if (dur > 0) interpolated.coerceAtMost(dur) else interpolated
                 }
+                delay(KARAOKE_FRAME_MS)
             } else {
                 needAnchor = true
                 clock.positionState.longValue = source.positionMs()
                 clock.durationState.longValue = source.durationMs()
-                delay(250)
+                delay(POSITION_POLL_MS)
             }
         }
     }
     return clock
 }
+
+/** 逐字填色的推进间隔：约每秒 16 次，填色仍连续向前，只是步子稍大。 */
+private const val KARAOKE_FRAME_MS = 55L
+
+/**
+ * 非逐字时读播放位置的间隔：每秒 2 次。插件画在车机桌面窗口里，进度条每动一下整个桌面都要重画；
+ * 进度条每秒只走几个像素，换句判定另有 250ms 提前量，2 次足够。
+ */
+private const val POSITION_POLL_MS = 500L

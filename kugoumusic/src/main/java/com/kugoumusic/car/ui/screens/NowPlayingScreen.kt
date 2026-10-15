@@ -2,14 +2,32 @@ package com.kugoumusic.car.ui.screens
 
 import android.app.Activity
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -32,6 +50,7 @@ import com.paopao.music.nowplaying.NowPlayingScreen as SharedNowPlayingScreen
 /** 播放页本体在共用源码 shared/nowplaying；这里只把本功能包的播放器接进去。 */
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit, standalone: Boolean = false) {
+    val buffering by PlayerHub.isBuffering.collectAsState()
     var immersive by rememberSaveable { mutableStateOf(false) }
     if (immersive) {
         if (standalone) {
@@ -55,10 +74,25 @@ fun NowPlayingScreen(onClose: () -> Unit, standalone: Boolean = false) {
             }
         }
     }
-    SharedNowPlayingScreen(
-        PlayerSource, K.colors.accent, onClose,
-        immersiveEnabled = true, onImmersiveChanged = { immersive = it },
-    )
+    Box(Modifier.fillMaxSize()) {
+        SharedNowPlayingScreen(
+            PlayerSource, K.colors.accent, onClose,
+            immersiveEnabled = true, onImmersiveChanged = { immersive = it },
+        )
+        AnimatedVisibility(
+            visible = buffering,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.systemBars).padding(top = 18.dp),
+        ) {
+            Text(
+                "正在缓冲…",
+                color = Color.White,
+                fontSize = 15.sp,
+                modifier = Modifier.background(Color.Black.copy(alpha = 0.66f), RoundedCornerShape(50)).padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
+    }
 }
 
 private object PlayerSource : NowPlayingSource {
